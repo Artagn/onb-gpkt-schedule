@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function: Get user's email
+    function getUserEmail() {
+      return request.auth.token.email;
+    }
+    
+    // ========== EMPLOYEES COLLECTION ==========
+    match /employees/{employeeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); 
+    }
+    
+    // ========== JOBS COLLECTION ==========
+    match /jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== SUBJOBS COLLECTION ==========
+    match /subJobs/{subJobId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== SCHEDULE COLLECTION ==========
+    match /schedule/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== LEAVES COLLECTION ==========
+    match /leaves/{leaveId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== ALLOCATIONS COLLECTION ==========
+    match /allocations/{allocationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== WORK PERIODS COLLECTION ==========
+    match /workPeriods/{periodId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== HOLIDAYS COLLECTION ==========
+    match /holidays/{holidayId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== PATTERNS COLLECTION ==========
+    match /patterns/{patternId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ========== APP CONFIG ==========
+    match /appConfig/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== AUDIT LOGS ==========
+    // All authenticated users can WRITE logs (to record their actions)
+    // Only authenticated users can READ logs (for Admin Dashboard)
+    match /audits/{auditId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== SWAP REQUESTS ==========
+    match /swapRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== LEAVE BALANCES ==========
+    match /leave_balances/{balanceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== EVALUATION METRICS (Đánh giá tháng) ==========
+    match /evaluation_metrics/{metricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== EVALUATION PERIODS (Đợt đánh giá) ==========
+    match /evaluation_periods/{periodId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== EVALUATIONS (Kết quả đánh giá) ==========
+    match /evaluations/{evaluationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+  }
+}

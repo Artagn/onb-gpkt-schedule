@@ -1,0 +1,35 @@
+{
+  "name": "onb-gpkt-schedule",
+  "private": true,
+  "version": "3.19.3",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy --only hosting"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
+    "@types/react-router-dom": "^5.3.3",
+    "date-fns": "^4.1.0",
+    "firebase": "^12.8.0",
+    "html2canvas": "^1.4.1",
+    "jose": "5.2.0",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^3.6.0",
+    "xlsx": "0.18.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^1.2.0"
+  }
+}

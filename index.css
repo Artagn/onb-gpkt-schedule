@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========== DESIGN TOKENS ========== */
+@layer base {
+  :root {
+    /* Primary Colors */
+    --color-primary: 59 130 246;
+    /* blue-500 */
+    --color-primary-hover: 37 99 235;
+    /* blue-600 */
+    --color-primary-light: 239 246 255;
+    /* blue-50 */
+
+    /* Status Colors */
+    --color-success: 34 197 94;
+    /* green-500 */
+    --color-warning: 234 179 8;
+    /* yellow-500 */
+    --color-danger: 239 68 68;
+    /* red-500 */
+    --color-info: 59 130 246;
+    /* blue-500 */
+
+    /* Touch Target */
+    --touch-target-min: 44px;
+
+    /* Spacing */
+    --spacing-widget: 1rem;
+    --radius-card: 0.75rem;
+  }
+
+  /* Typography: Inter for premium UI readability */
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tabular numbers for KPI/score tables */
+  .tabular-nums,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ========== COMPONENT CLASSES ========== */
+@layer components {
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100;
+  }
+
+  .card-hover {
+    @apply hover:shadow-md hover:border-gray-200 transition-all duration-200;
+  }
+
+  /* Buttons - Base */
+  .btn {
+    @apply font-medium rounded-lg transition-colors min-h-[var(--touch-target-min)] px-4 py-2 flex items-center justify-center gap-2;
+  }
+
+  /* Button Variants */
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
+  }
+
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700 active:bg-green-800;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 active:bg-red-800;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-600 hover:bg-gray-100;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-green-100 text-green-700;
+  }
+
+  .badge-warning {
+    @apply badge bg-yellow-100 text-yellow-700;
+  }
+
+  .badge-danger {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  .badge-info {
+    @apply badge bg-blue-100 text-blue-700;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm;
+  }
+
+  /* Date Input - Polished Native Style */
+  .input-date {
+    @apply px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700;
+    @apply bg-gradient-to-b from-white to-gray-50;
+    @apply shadow-sm hover:shadow-md hover:border-blue-300;
+    @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none;
+    @apply transition-all duration-200 cursor-pointer;
+    min-height: var(--touch-target-min);
+  }
+
+  .input-date::-webkit-calendar-picker-indicator {
+    @apply cursor-pointer opacity-60 hover:opacity-100 transition-opacity;
+    filter: invert(40%) sepia(80%) saturate(600%) hue-rotate(190deg);
+  }
+
+  /* Date Input - Compact Variant */
+  .input-date-sm {
+    @apply px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700;
+    @apply bg-white hover:bg-gray-50 hover:border-blue-300;
+    @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none;
+    @apply transition-all duration-200 cursor-pointer shadow-sm;
+  }
+
+  .input-date-sm::-webkit-calendar-picker-indicator {
+    @apply cursor-pointer opacity-50 hover:opacity-100 transition-opacity;
+    filter: invert(40%) sepia(80%) saturate(600%) hue-rotate(190deg);
+  }
+
+  /* Section Header */
+  .section-header {
+    @apply text-xs font-bold text-gray-500 uppercase tracking-wide;
+  }
+}
+
+/* VIEW TRANSITIONS API ANIMATION */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+  /* Duration */
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Fade In/Out Effect */
+::view-transition-old(root) {
+  animation-name: fade-out;
+}
+
+::view-transition-new(root) {
+  animation-name: fade-in;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@layer utilities {
+  .markdown-content strong {
+    font-weight: 700;
+  }
+
+  .markdown-content ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+  }
+
+  .markdown-content ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+  }
+
+  .markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    text-align: left;
+  }
+
+  .markdown-content th {
+    background-color: #f9fafb;
+  }
+}
