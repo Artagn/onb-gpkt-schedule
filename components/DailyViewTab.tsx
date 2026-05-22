@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Job, SubJob, JobGroup } from '../types';
+import { Job, SubJob } from '../types';
 import { format, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Calendar, Copy, Check, ExternalLink, Camera } from 'lucide-react';
+import { Calendar, Copy, Check, ExternalLink, Camera, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 
@@ -46,7 +46,7 @@ const DailyViewTab: React.FC<Props> = () => {
     // Get training jobs map: jobId -> classification
     const trainingJobsMap = useMemo(() => {
         const map = new Map<string, string>();
-        jobs.filter(j => j.group === JobGroup.Training && j.classification)
+        jobs.filter(j => j.group === 'Đào tạo' && j.classification)
             .forEach(j => map.set(j.id, j.classification!));
         return map;
     }, [jobs]);
@@ -173,6 +173,13 @@ const DailyViewTab: React.FC<Props> = () => {
         }
     };
 
+    const handleShareLink = () => {
+        const url = `${window.location.origin}/shared/training`;
+        navigator.clipboard.writeText(url)
+            .then(() => toast.success('Đã copy link chia sẻ công khai!'))
+            .catch(() => toast.error('Không thể copy link'));
+    };
+
     // Render table for a section
     const renderTable = (title: string, sectionKey: string, entries: ProcessedEntry[], bgClass: string, borderClass: string) => (
         <div id={`table-${sectionKey}`} className={`rounded-xl border-2 ${borderClass} overflow-hidden shadow-lg flex flex-col bg-white`}>
@@ -276,7 +283,14 @@ const DailyViewTab: React.FC<Props> = () => {
                     <p className="text-emerald-100 text-xs mt-0.5">Lịch đào tạo theo ngày - Có thể copy để chia sẻ</p>
                 </div>
 
-                <div className="flex items-center gap-2 mt-2 md:mt-0">
+                <div className="flex items-center gap-2 mt-2 md:mt-0 flex-wrap">
+                    <button 
+                        onClick={handleShareLink}
+                        className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium border border-white/20 flex items-center gap-1.5 transition-colors"
+                        title="Copy link chia sẻ cho Khách Hàng"
+                    >
+                        <Share2 className="w-4 h-4" /> Share Link
+                    </button>
                     <input
                         type="date"
                         className="bg-white/10 border border-white/20 text-white placeholder-white/60 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"

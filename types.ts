@@ -8,11 +8,12 @@ export enum EmployeeRank {
     None = 'Không phân hạng'
 }
 
-export enum JobGroup {
-    Training = 'Đào tạo',
-    Livechat = 'Livechat',
-    Daily = 'Chia hàng ngày',
-    Other = 'Khác'
+export interface JobGroupDef {
+    id: string; // Tên nhóm (khóa chính), ví dụ: 'Đào tạo', 'Livechat'
+    name: string; // Tên hiển thị
+    colorClass: string; // Mã màu Tailwind CSS
+    isActive: boolean;
+    order: number;
 }
 
 export enum TimeFrame {
@@ -43,7 +44,7 @@ export interface Employee {
     fullName: string;
     email: string;
     rank: EmployeeRank;
-    jobGroups: JobGroup[];
+    jobGroups: string[];
     timeFrames: TimeFrame[];
     role: Role;
     status: Status;
@@ -58,8 +59,8 @@ export interface Employee {
 export interface Job {
     id: string;
     name: string;
-    group: JobGroup;
-    classification?: string | null; // Legacy support for non-standard values
+    group: string;
+    classification?: 'Nghiệp vụ' | 'Lĩnh vực' | 'Nội bộ' | 'Trực tiếp'; // Phân loại đào tạo
     standardPoint: number;
     difficulty: number;
     durationMinutes: number;
@@ -360,4 +361,54 @@ export interface EmployeeEvaluation {
         lockedAt: string;
         lockedBy: string;
     };
+}
+
+// ========== CUSTOMER CARE MODULE (Chăm sóc KH - ONB_KS) ==========
+
+// Care Metric (Chỉ tiêu chăm sóc KH)
+export interface CareMetric {
+    id: string;           // e.g. 'call_count'
+    name: string;         // Tên hiển thị (e.g. 'Số cuộc gọi')
+    code: string;         // Mã chỉ tiêu
+    unit?: string;        // Đơn vị (e.g. 'cuộc', 'phút')
+    isActive: boolean;    // true = đang sử dụng, false = ngừng
+    order: number;        // Thứ tự hiển thị
+    createdAt: string;
+    updatedAt?: string;
+}
+
+// Care Campaign (Chiến dịch chăm sóc KH)
+export interface CareCampaign {
+    id: string;           // e.g. 'TTCG_ONBGPKT_NGUNG_CHUACS'
+    name: string;         // Tên hiển thị ngắn (e.g. 'Ngưng - Chưa CS')
+    code: string;         // Mã chiến dịch đầy đủ
+    description?: string; // Mô tả chi tiết
+    isActive: boolean;    // true = đang sử dụng, false = ngừng
+    order: number;        // Thứ tự hiển thị
+    createdAt: string;
+    updatedAt?: string;
+}
+
+// Daily Care Report (Báo cáo chăm sóc KH hàng ngày)
+export interface CareReport {
+    id: string;              // Format: '{employeeId}_{date}' (e.g. 'emp1_2026-05-12')
+    employeeId: string;
+    date: string;            // YYYY-MM-DD
+    weekId: string;          // ISO week identifier: 'YYYY-Wxx' (e.g. '2026-W20')
+ 
+    // Lũy kế chung (nhập hàng ngày) - Chuyển sang dạng map động
+    dailyMetrics: {
+        [metricId: string]: number; // Map từ ID chỉ tiêu sang giá trị
+    };
+ 
+    // Chi tiết theo từng chiến dịch (nhập hàng ngày)
+    campaignDetails: {
+        [campaignId: string]: {
+            weeklyTarget?: number;   // Target đầu tuần (chỉ nhập 1 lần/tuần, copy sang các ngày khác)
+            dailyCompleted: number;  // Số KH đã chăm sóc xong trong ngày
+        };
+    };
+ 
+    createdAt: string;
+    updatedAt: string;
 }

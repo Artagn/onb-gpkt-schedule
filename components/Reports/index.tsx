@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PieChart, CalendarDays, GraduationCap, ArrowLeftRight, ClipboardList, MessageCircle, TrendingUp, RefreshCcw, BookOpen, FileText, Download, FileSpreadsheet, Filter, Calendar } from 'lucide-react';
-import { Role, JobGroup } from '../../types';
+import { Role } from '../../types';
 import { useReports, MainTabOption, SubTabOption, SUB_TABS, TimeRangeOption } from './useReports';
 import { PointsChart } from './PointsChart';
 import { PointsTable } from './PointsTable';
@@ -275,7 +275,7 @@ const Reports: React.FC<Props> = (props) => {
                                             <button onClick={() => logic.toggleAllJobGroups(false)} className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded hover:bg-gray-100 flex-1">Bỏ chọn</button>
                                         </div>
                                         <div className="space-y-0.5">
-                                            {Object.values(JobGroup).map(group => (
+                                            {Array.from(new Set(logic.jobs.map(j => j.group))).map(group => (
                                                 <label key={group} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
                                                     <input type="checkbox" checked={logic.selectedJobGroups.includes(group)} onChange={() => logic.toggleJobGroup(group)} className="rounded border-gray-300 text-blue-600" />
                                                     <span className="text-sm text-gray-700">{group}</span>

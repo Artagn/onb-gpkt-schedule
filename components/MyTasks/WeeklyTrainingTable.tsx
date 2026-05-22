@@ -3,7 +3,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, CalendarRange, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, subWeeks, addWeeks } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ScheduleItem, Job, JobGroup } from '../../types';
+import { ScheduleItem, Job } from '../../types';
 
 interface Props {
     weeklyViewDate: Date;
@@ -75,7 +75,7 @@ const WeeklyTrainingTable: React.FC<Props> = ({
 
                                                 // Check Job Group: Training OR Livechat
                                                 const job = jobs.find(j => j.id === s.jobId);
-                                                return job?.group === JobGroup.Training || job?.group === JobGroup.Livechat;
+                                                return job?.group === 'Đào tạo' || job?.group === 'Livechat';
                                             });
 
                                             return (

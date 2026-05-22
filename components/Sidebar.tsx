@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Users, Briefcase, Calendar, CheckSquare, BarChart2, CalendarDays, HelpCircle, CalendarSearch, X, UserCheck, ChevronLeft, ChevronRight, CalendarRange, Sliders, LogOut, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, Calendar, CheckSquare, BarChart2, CalendarDays, HelpCircle, CalendarSearch, X, UserCheck, ChevronLeft, ChevronRight, CalendarRange, Sliders, LogOut, ClipboardList, Headphones } from 'lucide-react';
 import { Role } from '../types';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -34,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isC
         { id: ROUTES.REPORTS, label: 'Báo cáo & KPI', icon: BarChart2 },
         { id: ROUTES.VIEW_SCHEDULE, label: 'Xem Lịch', icon: CalendarRange },
         { id: ROUTES.EVALUATION, label: 'Đánh giá tháng', icon: ClipboardList },
+        { id: ROUTES.CUSTOMER_CARE, label: 'Chăm sóc KH', icon: Headphones },
         { id: ROUTES.ADMIN, label: 'Quản trị hệ thống', icon: LayoutDashboard, adminOnly: true },
 
     ];
@@ -74,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isC
                             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent">
                                 ONB GPKT
                             </h1>
-                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v3.19.3</p>
+                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v3.22.3</p>
                         </div>
                     )}
                     {isCollapsed && (

@@ -12,7 +12,8 @@ import StatCard from './StatCard';
 import CombinedWidget from './CombinedWidget';
 import EmptyState from '../common/EmptyState';
 import { ROUTES } from '../../routes';
-import { JobGroup, Status } from '../../types';
+import { Status } from '../../types';
+import { useData } from '../../context/DataContext';
 import { useLeaveMutations } from '../../hooks/useLeavesQuery';
 import { useScheduleMutations } from '../../hooks/useSchedulesQuery';
 
@@ -37,6 +38,8 @@ const Dashboard: React.FC<Props> = ({ user }) => {
         filterJobGroup, setFilterJobGroup,
         getSubJobs
     } = useDashboardStats(user);
+
+    const { jobGroups } = useData();
 
     // Mutations
     const leaveMutations = useLeaveMutations();
@@ -319,8 +322,8 @@ const Dashboard: React.FC<Props> = ({ user }) => {
                                                 onChange={(e) => setFilterJobGroup(e.target.value)}
                                             >
                                                 <option value="all">Tất cả nhóm việc</option>
-                                                {Object.values(JobGroup).map(g => (
-                                                    <option key={g} value={g}>{g}</option>
+                                                {jobGroups.filter(g => g.isActive).map(g => (
+                                                    <option key={g.id} value={g.name}>{g.name}</option>
                                                 ))}
                                             </select>
                                         </div>

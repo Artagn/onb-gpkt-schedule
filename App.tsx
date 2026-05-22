@@ -8,22 +8,49 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ROUTES } from './routes';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
-// Lazy Imports
-const Dashboard = React.lazy(() => import('./components/Dashboard/index'));
-const EmployeeManager = React.lazy(() => import('./components/Employees'));
-const CoordinationManager = React.lazy(() => import('./components/CoordinationManager'));
-const DailyAllocationView = React.lazy(() => import('./components/DailyAllocation'));
-const MyTasks = React.lazy(() => import('./components/MyTasks'));
+
+// --- Chunk Load Retry Helper ---
+// When a new version is deployed, old cached index.html may reference stale chunk filenames.
+// Firebase SPA rewrite returns index.html (text/html) instead of 404 → MIME type error.
+// This helper catches the error and reloads once to get fresh index.html with correct chunks.
+function lazyWithRetry(importFn: () => Promise<{ default: React.ComponentType<any> }>) {
+    return React.lazy(() =>
+        importFn().catch((error) => {
+            const hasReloaded = sessionStorage.getItem('chunk_reload');
+            if (!hasReloaded) {
+                sessionStorage.setItem('chunk_reload', '1');
+                window.location.reload();
+                // Return a never-resolving promise to prevent rendering stale content
+                return new Promise(() => {});
+            }
+            // Already reloaded once — clear flag and let error propagate
+            sessionStorage.removeItem('chunk_reload');
+            throw error;
+        })
+    );
+}
+// Clear reload flag on successful app load
+sessionStorage.removeItem('chunk_reload');
+
+// Lazy Imports (with auto-retry on chunk load failure)
+const Dashboard = lazyWithRetry(() => import('./components/Dashboard/index'));
+const EmployeeManager = lazyWithRetry(() => import('./components/Employees'));
+const CoordinationManager = lazyWithRetry(() => import('./components/CoordinationManager'));
+const DailyAllocationView = lazyWithRetry(() => import('./components/DailyAllocation'));
+const MyTasks = lazyWithRetry(() => import('./components/MyTasks'));
 import Login from './components/Login';
-const Reports = React.lazy(() => import('./components/Reports/index'));
-const AdminDashboard = React.lazy(() => import('./components/Admin/AdminDashboard'));
-const ScheduleViewer = React.lazy(() => import('./components/ScheduleViewer'));
-const Config = React.lazy(() => import('./components/Config'));
-const Evaluation = React.lazy(() => import('./components/Evaluation/index'));
+const Reports = lazyWithRetry(() => import('./components/Reports/index'));
+const AdminDashboard = lazyWithRetry(() => import('./components/Admin/AdminDashboard'));
+const ScheduleViewer = lazyWithRetry(() => import('./components/ScheduleViewer'));
+const Config = lazyWithRetry(() => import('./components/Config'));
+const Evaluation = lazyWithRetry(() => import('./components/Evaluation/index'));
+const CustomerCare = lazyWithRetry(() => import('./components/CustomerCare/index'));
+const PublicScheduleContainer = lazyWithRetry(() => import('./components/PublicShare/PublicScheduleContainer'));
+import PublicLayout from './components/PublicShare/PublicLayout';
 import { User, Role, Status } from './types';
 import { auth } from './services/firebaseConfig';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { Menu, RefreshCw } from 'lucide-react';
+import { Menu, RefreshCw, Loader2 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import { DataProvider, useData } from './context/DataContext';
@@ -104,6 +131,19 @@ function AppContent() {
     // --- DATA MANAGEMENT HANDLERS ---
     // (Moved to Config.tsx and DataContext)
 
+    // -- HANDLE PUBLIC ROUTES --
+    const isPublicRoute = window.location.pathname.startsWith('/shared/training');
+    
+    if (isPublicRoute) {
+        return (
+            <React.Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-600" /></div>}>
+                <Routes>
+                    <Route path="/shared/training" element={<PublicLayout><PublicScheduleContainer /></PublicLayout>} />
+                </Routes>
+            </React.Suspense>
+        );
+    }
+
     if (authLoading) return <div className="h-screen flex items-center justify-center">Đang tải...</div>;
 
     if (!user) {
@@ -121,7 +161,6 @@ function AppContent() {
     }
 
     return (
-        <BrowserRouter>
             <div className="flex h-screen bg-slate-100">
                 <Sidebar
                     currentUserRole={effectiveRole}
@@ -205,6 +244,8 @@ function AppContent() {
 
                                 <Route path={ROUTES.EVALUATION} element={<Evaluation />} />
 
+                                <Route path={ROUTES.CUSTOMER_CARE} element={<CustomerCare />} />
+
                                 {/* Fallback */}
                                 <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />
                             </Routes>
@@ -240,17 +281,18 @@ function AppContent() {
 
 
             </div>
-        </BrowserRouter>
     );
 }
 
 export default function App() {
     return (
-        <DataProvider>
-            <GlobalErrorBoundary>
-                <AppContent />
-            </GlobalErrorBoundary>
-        </DataProvider>
+        <BrowserRouter>
+            <DataProvider>
+                <GlobalErrorBoundary>
+                    <AppContent />
+                </GlobalErrorBoundary>
+            </DataProvider>
+        </BrowserRouter>
     );
 }
 

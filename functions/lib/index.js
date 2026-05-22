@@ -23,15 +23,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.recalculateAllBalances = exports.onLeaveApproved = exports.onScheduleUpdate = exports.askSchedulerBotV2 = void 0;
+exports.getPublicTrainingSchedule = exports.recalculateAllBalances = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
 const admin = __importStar(require("firebase-admin"));
 // Khởi tạo Admin SDK một lần duy nhất tại đây cho toàn bộ Functions
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 // Export các functions từ file riêng
-var askSchedulerBotV2_1 = require("./askSchedulerBotV2");
-Object.defineProperty(exports, "askSchedulerBotV2", { enumerable: true, get: function () { return askSchedulerBotV2_1.askSchedulerBotV2; } });
+// export { askSchedulerBotV2 } from "./askSchedulerBotV2"; (Removed)
 // Phase 5: Leave Balance Triggers
 var onLeaveBalanceUpdate_1 = require("./onLeaveBalanceUpdate");
 Object.defineProperty(exports, "onScheduleUpdate", { enumerable: true, get: function () { return onLeaveBalanceUpdate_1.onScheduleUpdate; } });
@@ -39,4 +38,7 @@ Object.defineProperty(exports, "onLeaveApproved", { enumerable: true, get: funct
 // Admin Tools
 var recalculateBalances_1 = require("./recalculateBalances");
 Object.defineProperty(exports, "recalculateAllBalances", { enumerable: true, get: function () { return recalculateBalances_1.recalculateAllBalances; } });
+// Public APIs
+var getPublicTrainingSchedule_1 = require("./getPublicTrainingSchedule");
+Object.defineProperty(exports, "getPublicTrainingSchedule", { enumerable: true, get: function () { return getPublicTrainingSchedule_1.getPublicTrainingSchedule; } });
 //# sourceMappingURL=index.js.map

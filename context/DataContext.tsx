@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
     Employee, Job, SubJob, ScheduleItem, SchedulePattern, WorkPeriod,
-    Holiday, DailyAllocation, LeaveRequest, Role
+    Holiday, DailyAllocation, LeaveRequest, Role, JobGroupDef
 } from '../types';
 import { auth } from '../services/firebaseConfig';
 import { useEmployeesQuery } from '../hooks/useEmployeesQuery';
 import { useJobsQuery } from '../hooks/useJobsQuery';
+import { useJobGroupsQuery } from '../hooks/useJobGroupsQuery';
 import { useSubJobsQuery } from '../hooks/useSubJobsQuery';
 import { useWorkPeriodsQuery, useHolidaysQuery, usePatternsQuery } from '../hooks/useConfigQuery';
 import { useSchedulesRealtimeQuery, useLeavesRealtimeQuery, useAllocationsRealtimeQuery } from '../hooks/useRealtimeQuery';
 
 interface DataContextType {
     // Master Data (Read-only from TanStack Query - use mutations to modify)
+    jobGroups: JobGroupDef[];
     employees: Employee[];
     setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>; // no-op for compatibility
     jobs: Job[];
@@ -56,6 +58,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 1. TanStack Query - ONLY run when authenticated
     // v3.15.0: Highly optimized staleTime for master data (Infinity - only reload on mutation or restart)
+    const { data: jobGroups = [], isLoading: loadingJobGroups } = useJobGroupsQuery(isAuthenticated, { staleTime: Infinity });
     const { data: employees = [], isLoading: loadingEmployees } = useEmployeesQuery(isAuthenticated, { staleTime: Infinity });
     const { data: jobs = [], isLoading: loadingJobs } = useJobsQuery(isAuthenticated, { staleTime: Infinity });
     const { data: subJobs = [], isLoading: loadingSubJobs } = useSubJobsQuery(isAuthenticated, { staleTime: Infinity });
@@ -75,7 +78,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isOnline, setIsOnline] = useState(true);
 
     // Derived DataLoaded state - all data sources now via TanStack Query
-    const dataLoaded = !loadingEmployees && !loadingJobs && !loadingSubJobs && !loadingSchedule
+    const dataLoaded = !loadingJobGroups && !loadingEmployees && !loadingJobs && !loadingSubJobs && !loadingSchedule
         && !loadingWorkPeriods && !loadingHolidays && !loadingPatterns
         && !loadingLeaves && !loadingAllocations;
 
@@ -121,6 +124,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const value: DataContextType = {
         // Master Data (Read-only)
+        jobGroups,
         employees,
         setEmployees: noopWarn('setEmployees') as any,
         jobs,

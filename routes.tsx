@@ -11,7 +11,8 @@ export const ROUTES = {
     ADMIN: '/admin',
     VIEW_SCHEDULE: '/view-schedule',
     CONFIG: '/config',
-    EVALUATION: '/evaluation'
+    EVALUATION: '/evaluation',
+    CUSTOMER_CARE: '/customer-care'
 };
 
 // This file can later be expanded to export the actual Router configuration

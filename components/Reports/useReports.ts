@@ -8,7 +8,7 @@ import { useData } from '../../context/DataContext';
 import { useSchedulesQuery } from '../../hooks/useSchedulesQuery';
 import { useLeavesQuery } from '../../hooks/useLeavesQuery';
 import { useAllocationsQuery } from '../../hooks/useAllocationsQuery';
-import { Employee, Job, ScheduleItem, DailyAllocation, LeaveRequest, Role, JobGroup, SwapRequest } from '../../types';
+import { Employee, Job, ScheduleItem, DailyAllocation, LeaveRequest, Role, SwapRequest } from '../../types';
 import { swapService } from '../../services/swapService';
 import * as XLSX from 'xlsx';
 import { exportWeeklySchedule } from '../../services/excelExportService';
@@ -75,7 +75,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
     const isLoading = isLoadSchedule || isLoadLeaves || isLoadAllocations;
 
     const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
-    const [selectedJobGroups, setSelectedJobGroups] = useState<string[]>(Object.values(JobGroup));
+    const [selectedJobGroups, setSelectedJobGroups] = useState<string[]>([]);
 
     // NEW: 2-level tabs
     const [mainTab, setMainTab] = useState<MainTabOption>('kpi');
@@ -116,6 +116,14 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
         }
     }, [fixedEmployeeId, currentUserRole, user, employees]);
 
+    // Initialize Job Groups selection from dynamic data
+    useEffect(() => {
+        if (selectedJobGroups.length === 0 && jobs.length > 0) {
+            const uniqueGroups = Array.from(new Set(jobs.map(j => j.group)));
+            setSelectedJobGroups(uniqueGroups);
+        }
+    }, [jobs]);
+
     // --- HANDLERS ---
     const handleTimeRangeChange = (type: TimeRangeOption) => {
         setTimeRangeType(type);
@@ -150,7 +158,8 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
     };
 
     const toggleAllJobGroups = (select: boolean) => {
-        setSelectedJobGroups(select ? Object.values(JobGroup) : []);
+        const allGroups = Array.from(new Set(jobs.map(j => j.group)));
+        setSelectedJobGroups(select ? allGroups : []);
     };
 
     // --- DATA PROCESSING ---
@@ -303,7 +312,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
 
         schedule.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (!job || job.group !== JobGroup.Training || item.status !== 'Completed') return;
+            if (!job || job.group !== 'Đào tạo' || item.status !== 'Completed') return;
             if (!isWithinInterval(new Date(item.date), { start: filterStart, end: filterEnd })) return;
             if (!selectedJobGroups.includes(job.group)) return;
 

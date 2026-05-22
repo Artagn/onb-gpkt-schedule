@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Employee, Holiday, Job, ScheduleItem, LeaveRequest, JobGroup } from '../../types';
+import { Employee, Holiday, Job, ScheduleItem, LeaveRequest } from '../../types';
 import ScheduleRow from './ScheduleRow';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
     leaveMap: Map<string, LeaveRequest>;
     onCellClick: (day: Date, shift: string, empId: string) => void;
     onCellSelect: (day: Date, shift: string, empId: string) => void;
-    getJobStyle: (group: JobGroup | null | undefined) => string;
+    getJobStyle: (group: string | null | undefined) => string;
 }
 
 const ScheduleMatrix: React.FC<Props> = ({

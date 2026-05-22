@@ -7,10 +7,11 @@ import { scheduleService, patternsService, leavesService, saveCollection, delete
 import { appConfigService } from '../../services/appConfigService';
 import { generateWeeklySchedule } from '../../services/schedulerEngine';
 import { useQueryClient } from '@tanstack/react-query';
+import { useData } from '../../context/DataContext';
 import { useScheduleMutations, SCHEDULE_KEYS } from '../../hooks/useSchedulesQuery';
 import { usePatternMutations, PATTERN_KEYS } from '../../hooks/useConfigQuery';
 import { useLeaveMutations, LEAVE_KEYS } from '../../hooks/useLeavesQuery';
-import { Employee, Job, ScheduleItem, SchedulePattern, JobGroup, Status, WorkPeriod, Holiday, LeaveRequest, Role } from '../../types';
+import { Employee, Job, ScheduleItem, SchedulePattern,  Status, WorkPeriod, Holiday, LeaveRequest, Role } from '../../types';
 
 export const useFixedSchedule = (
     employees: Employee[],
@@ -28,6 +29,7 @@ export const useFixedSchedule = (
     user: any
 ) => {
     const queryClient = useQueryClient();
+    const { jobGroups } = useData();
     const scheduleMutations = useScheduleMutations();
     const patternMutations = usePatternMutations();
     const leaveMutations = useLeaveMutations();
@@ -120,15 +122,13 @@ export const useFixedSchedule = (
     const isWeekEditable = canEdit && (!isPastWeek || isWeekUnlocked);
 
     // --- HELPERS ---
-    const getJobStyle = (group: JobGroup | null | undefined) => {
-        if (!group) return 'bg-gray-200 text-gray-600 italic border-gray-300';
-        switch (group) {
-            case JobGroup.Training: return 'bg-blue-100 border-blue-200 text-blue-800';
-            case JobGroup.Livechat: return 'bg-purple-100 border-purple-200 text-purple-800';
-            case JobGroup.Daily: return 'bg-emerald-100 border-emerald-200 text-emerald-800';
-            case JobGroup.Other: return 'bg-orange-100 border-orange-200 text-orange-800';
-            default: return 'bg-slate-100 border-slate-200 text-slate-800';
+    const getJobStyle = (groupName: string | null | undefined) => {
+        if (!groupName) return 'bg-gray-200 text-gray-600 italic border-gray-300';
+        const groupDef = jobGroups.find(g => g.name === groupName);
+        if (groupDef) {
+            return `${groupDef.colorClass} border border-opacity-30`;
         }
+        return 'bg-slate-100 border-slate-200 text-slate-800';
     };
 
     const isWorkShiftActive = (date: Date, shift: string): { isActive: boolean, reason?: string } => {
@@ -487,6 +487,7 @@ export const useFixedSchedule = (
 
     return {
         // State
+        jobGroups,
         selectedDate, setSelectedDate,
         isConfigMode, setIsConfigMode,
         showAssignModal, setShowAssignModal,

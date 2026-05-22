@@ -4,17 +4,17 @@
  */
 
 import React from 'react';
-import { JobGroup } from '../../types';
 import { Edit2, Trash2, Plus, Filter, FileSpreadsheet, Search } from 'lucide-react';
 
 // Modular imports
 import { useJobManager } from './useJobManager';
 import { MultiSelect } from './MultiSelect';
-import { DeleteModal, JobEditModal, SubJobEditModal, ImportModal } from './Modals';
+import { DeleteModal, JobEditModal, SubJobEditModal, ImportModal, JobGroupEditModal } from './Modals';
 
 const JobManager: React.FC = () => {
     const {
         // Data
+        jobGroups,
         jobs,
         filteredJobs,
         filteredSubJobs,
@@ -26,6 +26,16 @@ const JobManager: React.FC = () => {
         setImportMode,
         deleteConfirm,
         setDeleteConfirm,
+
+        // JobGroup Edit
+        isEditingGroup,
+        editGroupForm,
+        setEditGroupForm,
+        handleEditJobGroup,
+        handleAddJobGroup,
+        handleDeleteJobGroupClick,
+        handleSaveJobGroup,
+        handleCancelEditJobGroup,
 
         // Job Edit
         isEditing,
@@ -80,6 +90,12 @@ const JobManager: React.FC = () => {
             {/* TABS HEADER */}
             <div className="flex border-b">
                 <button
+                    onClick={() => setActiveTab('jobGroups')}
+                    className={`px-6 py-4 font-bold text-sm transition-colors ${activeTab === 'jobGroups' ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    Nhóm Công việc
+                </button>
+                <button
                     onClick={() => setActiveTab('jobs')}
                     className={`px-6 py-4 font-bold text-sm transition-colors ${activeTab === 'jobs' ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
                 >
@@ -94,6 +110,59 @@ const JobManager: React.FC = () => {
             </div>
 
             <div className="p-6 flex-1 overflow-auto">
+                {/* JOB GROUPS TAB */}
+                {activeTab === 'jobGroups' && (
+                    <>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800">Quản lý Nhóm Công việc</h2>
+                                <p className="text-sm text-gray-500">Khai báo các nhóm công việc và màu sắc hiển thị trên Lịch điều phối.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleAddJobGroup}
+                                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm"
+                            >
+                                <Plus className="w-4 h-4 mr-2" /> Thêm Nhóm
+                            </button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase">Thứ tự</th>
+                                        <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase">Tên Nhóm</th>
+                                        <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase">Màu sắc</th>
+                                        <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-500 uppercase">Trạng thái</th>
+                                        <th className="px-3 py-2 text-right text-[11px] font-bold text-gray-500 uppercase">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {[...jobGroups].sort((a, b) => a.order - b.order).map(g => (
+                                        <tr key={g.id} className={!g.isActive ? 'bg-gray-50 opacity-60' : ''}>
+                                            <td className="px-3 py-2 text-xs font-medium text-gray-500">{g.order}</td>
+                                            <td className="px-3 py-2 text-xs font-bold text-gray-800">{g.name}</td>
+                                            <td className="px-3 py-2 text-xs">
+                                                <span className={`px-2 py-1 rounded-md text-[11px] font-medium ${g.colorClass}`}>
+                                                    Demo Hiển thị
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 text-xs text-gray-500">
+                                                {g.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-xs font-medium">
+                                                <button onClick={() => handleEditJobGroup(g)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                <button type="button" onClick={() => handleDeleteJobGroupClick(g)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
+                )}
+
                 {/* JOBS TAB */}
                 {activeTab === 'jobs' && (
                     <>
@@ -122,7 +191,7 @@ const JobManager: React.FC = () => {
                                 <Filter className="w-4 h-4 text-slate-500" />
                                 <select className="border rounded p-1.5 text-sm" value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)}>
                                     <option value="All">Tất cả nhóm</option>
-                                    {Object.values(JobGroup).map(g => <option key={g} value={g}>{g}</option>)}
+                                    {jobGroups.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
                                 </select>
                             </div>
                             <div className="relative flex-1 max-w-xs">
@@ -165,9 +234,11 @@ const JobManager: React.FC = () => {
                                         <tr key={j.id} className={!j.isActive ? 'bg-gray-50 opacity-60' : ''}>
                                             <td className="px-3 py-2 text-xs font-medium">{j.name}</td>
                                             <td className="px-3 py-2 text-xs text-gray-500">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] ${j.group === JobGroup.Training ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{j.group}</span>
+                                                <span className={`px-2 py-0.5 rounded text-[10px] ${jobGroups.find(gr => gr.name === j.group)?.colorClass || 'bg-gray-100 text-gray-800'}`}>{j.group}</span>
                                             </td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">{j.classification || '-'}</td>
+                                            <td className="px-3 py-2 text-xs text-gray-500">
+                                                {j.classification ? <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px]">{j.classification}</span> : <span className="text-gray-300">—</span>}
+                                            </td>
                                             <td className="px-3 py-2 text-xs text-gray-500">{j.standardPoint}</td>
                                             <td className="px-3 py-2 text-xs text-gray-500">{j.durationMinutes}</td>
                                             <td className="px-3 py-2 text-xs text-gray-500">{j.difficulty}</td>
@@ -285,7 +356,8 @@ const JobManager: React.FC = () => {
 
             {/* MODALS */}
             <DeleteModal deleteConfirm={deleteConfirm} onCancel={() => setDeleteConfirm(null)} onConfirm={confirmDelete} />
-            <JobEditModal isEditing={isEditing} editForm={editForm} setEditForm={setEditForm} onSave={handleSaveJob} onCancel={handleCancelEditJob} />
+            <JobGroupEditModal isEditingGroup={isEditingGroup} editGroupForm={editGroupForm} setEditGroupForm={setEditGroupForm} onSave={handleSaveJobGroup} onCancel={handleCancelEditJobGroup} />
+            <JobEditModal isEditing={isEditing} editForm={editForm} setEditForm={setEditForm} jobGroups={jobGroups} onSave={handleSaveJob} onCancel={handleCancelEditJob} />
             <SubJobEditModal isEditingSub={isEditingSub} editSubForm={editSubForm} setEditSubForm={setEditSubForm} jobs={jobs} onSave={handleSaveSub} onCancel={handleCancelEditSub} />
             <ImportModal importMode={importMode} onClose={() => setImportMode('none')} onFileUpload={handleFileUpload} onDownloadTemplate={downloadTemplate} />
         </div>

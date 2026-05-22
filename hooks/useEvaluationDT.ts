@@ -5,7 +5,7 @@
 
 import { useMemo } from 'react';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
-import { Employee, Job, JobGroup, ScheduleItem, EvaluationPeriod, EvaluationMetric, EmployeeEvaluation } from '../types';
+import { Employee, Job,  ScheduleItem, EvaluationPeriod, EvaluationMetric, EmployeeEvaluation } from '../types';
 
 // ========== TYPES ==========
 
@@ -122,7 +122,7 @@ export function useEvaluationDT({
 }: UseEvaluationDTProps) {
     // ========== LIVECHAT JOBS ==========
     const livechatJobs = useMemo(() => {
-        return jobs.filter(j => j.group === JobGroup.Livechat && j.isActive);
+        return jobs.filter(j => j.group === 'Livechat' && j.isActive);
     }, [jobs]);
 
     // ========== TRAINING BY CLASSIFICATION ==========
@@ -155,7 +155,7 @@ export function useEvaluationDT({
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Training) return;
+            if (job?.group !== 'Đào tạo') return;
 
             const coefficient = item.coefficient || 1;
             const points = (job.standardPoint || 0) * coefficient;
@@ -219,7 +219,7 @@ export function useEvaluationDT({
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Livechat) return;
+            if (job?.group !== 'Livechat') return;
 
             if (!jobStats[job.id]) return;
             jobStats[job.id].total++;

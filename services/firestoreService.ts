@@ -22,11 +22,11 @@ import {
 } from 'firebase/firestore';
 
 import { ZodSchema } from 'zod';
-import { Employee, Job, SubJob, ScheduleItem, LeaveRequest, DailyAllocation, WorkPeriod, Holiday, SchedulePattern, AppConfig, AuditLog, LeaveBalance } from '../types';
+import { Employee, Job, SubJob, ScheduleItem, LeaveRequest, DailyAllocation, WorkPeriod, Holiday, SchedulePattern, AppConfig, AuditLog, LeaveBalance, JobGroupDef } from '../types';
 import {
     EmployeeSchema, JobSchema, SubJobSchema, ScheduleItemSchema,
     LeaveRequestSchema, DailyAllocationSchema, WorkPeriodSchema,
-    HolidaySchema, SchedulePatternSchema, LeaveBalanceSchema
+    HolidaySchema, SchedulePatternSchema, LeaveBalanceSchema, JobGroupDefSchema
 } from '../schemas';
 
 // Collection names
@@ -43,7 +43,8 @@ const COLLECTIONS = {
     PATTERNS: 'patterns',
     APP_CONFIG: 'appConfig',
     SWAP_REQUESTS: 'swapRequests',
-    LEAVE_BALANCES: 'leave_balances'
+    LEAVE_BALANCES: 'leave_balances',
+    JOB_GROUPS: 'jobGroups'
 };
 
 // ========== GENERIC CRUD OPERATIONS ==========
@@ -262,6 +263,14 @@ export const jobsService = {
     saveAll: (jobs: Job[]) => saveCollection(COLLECTIONS.JOBS, jobs),
 };
 
+// --- JOB GROUPS ---
+export const jobGroupsService = {
+    load: () => loadCollection<JobGroupDef>(COLLECTIONS.JOB_GROUPS, JobGroupDefSchema),
+    save: (group: JobGroupDef) => saveDocument(COLLECTIONS.JOB_GROUPS, group),
+    delete: (id: string) => deleteDocument(COLLECTIONS.JOB_GROUPS, id),
+    saveAll: (groups: JobGroupDef[]) => saveCollection(COLLECTIONS.JOB_GROUPS, groups),
+};
+
 // --- SUBJOBS ---
 export const subJobsService = {
     load: () => loadCollection<SubJob>(COLLECTIONS.SUBJOBS, SubJobSchema),
@@ -403,6 +412,7 @@ export const patternsService = {
  * Call this when migrating from LocalStorage to Firestore
  */
 export async function initializeFirestoreWithDefaults(data: {
+    jobGroups: JobGroupDef[];
     employees: Employee[];
     jobs: Job[];
     subJobs: SubJob[];
@@ -417,6 +427,7 @@ export async function initializeFirestoreWithDefaults(data: {
 
     try {
         await Promise.all([
+            jobGroupsService.saveAll(data.jobGroups),
             employeesService.saveAll(data.employees),
             jobsService.saveAll(data.jobs),
             subJobsService.saveAll(data.subJobs),
@@ -536,6 +547,7 @@ export async function importDataToFirestore(importedData: any): Promise<void> {
 
         // Validate and save each collection if present
         const promises = [];
+        if (importedData.jobGroups) promises.push(jobGroupsService.saveAll(importedData.jobGroups));
         if (importedData.employees) promises.push(employeesService.saveAll(importedData.employees));
         if (importedData.jobs) promises.push(jobsService.saveAll(importedData.jobs));
         if (importedData.subJobs) promises.push(subJobsService.saveAll(importedData.subJobs));

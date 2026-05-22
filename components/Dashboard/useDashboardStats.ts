@@ -1,7 +1,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { Role, ScheduleItem, JobGroup, Status, SchedulePattern, Job } from '../../types';
+import { Role, ScheduleItem, Status, SchedulePattern, Job } from '../../types';
 import { isSameDay, setHours, setMinutes } from 'date-fns';
 
 export const useDashboardStats = (user: any) => {

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Job, ScheduleItem, LeaveRequest, JobGroup } from '../../types';
+import { Job, ScheduleItem, LeaveRequest } from '../../types';
 
 interface ScheduleCellProps {
     day: Date;
@@ -13,7 +13,7 @@ interface ScheduleCellProps {
     isSelected?: boolean;
     onCellClick: (day: Date, shift: string, empId: string) => void;
     onCellSelect?: (day: Date, shift: string, empId: string) => void;
-    getJobStyle: (group: JobGroup | null | undefined) => string;
+    getJobStyle: (group: string | null | undefined) => string;
     jobs: Job[];
 }
 
@@ -70,7 +70,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
                         <div className={`flex flex-col gap-0.5 min-h-[35px] ${pendingLeave ? 'opacity-50' : ''}`}>
                             {items.map(item => {
                                 const job = item.jobId === 'JOB_NGHI_BU' ? { name: 'Nghỉ bù', group: null } : jobs.find(j => j.id === item.jobId);
-                                const styleClass = getJobStyle(job?.group as JobGroup);
+                                const styleClass = getJobStyle(job?.group);
                                 return (
                                     <div key={item.id} className={`px-1 py-0.5 rounded text-[10px] border break-words whitespace-normal leading-tight ${styleClass}`}>
                                         {job?.name}

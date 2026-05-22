@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Employee, Job, DailyAllocation, JobGroup, Status, ScheduleItem, LeaveRequest, Role } from '../../types';
+import { Employee, Job, DailyAllocation, Status, ScheduleItem, LeaveRequest, Role } from '../../types';
 import { format, isSameDay, startOfDay, endOfDay, isWithinInterval, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, addWeeks, subMonths, addMonths } from 'date-fns';
 import toast from 'react-hot-toast';
 import { allocationsService, auditService } from '../../services/firestoreService';
@@ -62,7 +62,7 @@ export const useDailyAllocation = ({
 
     // Daily jobs only
     const allDailyJobs = useMemo(() =>
-        jobs.filter(j => j.group === JobGroup.Daily && j.isActive),
+        jobs.filter(j => j.group === 'Chia hàng ngày' && j.isActive),
         [jobs]
     );
 
@@ -161,7 +161,7 @@ export const useDailyAllocation = ({
     // ========== AVAILABLE EMPLOYEES ==========
     const availableEmployees = useMemo(() => {
         return activeEmployees.filter(emp => {
-            if (!emp.jobGroups.includes(JobGroup.Daily)) return false;
+            if (!emp.jobGroups.includes('Chia hàng ngày')) return false;
 
             if (isSingleDay) {
                 const busyMorning = checkBusy(emp.id, 'Sáng');

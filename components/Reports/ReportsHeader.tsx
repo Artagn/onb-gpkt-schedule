@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Download, Filter, FileSpreadsheet, TrendingUp, Calendar } from 'lucide-react';
-import { Role, JobGroup } from '../../types';
+import { Role } from '../../types';
 import { TimeRangeOption, MainTabOption } from './useReports';
 
 interface Props {
@@ -32,9 +32,9 @@ interface Props {
     // Job Group Filter
     showGroupDropdown: boolean;
     setShowGroupDropdown: (show: boolean) => void;
-    selectedJobGroups: string[];
-    toggleJobGroup: (group: string) => void;
-    toggleAllJobGroups: (select: boolean) => void;
+    selectedstrings: string[];
+    togglestring: (group: string) => void;
+    toggleAllstrings: (select: boolean) => void;
 
     // Actions
     handleExportExcel: () => void;
@@ -46,7 +46,7 @@ interface Props {
 
 export const ReportsHeader: React.FC<Props> = (props) => {
     // Determine which filters to show based on mainTab
-    const showJobGroupFilter = props.mainTab === 'kpi'; // Only for KPI tab
+    const showstringFilter = props.mainTab === 'kpi'; // Only for KPI tab
     const showExportGrid = props.mainTab === 'kpi'; // Only for KPI tab
 
     // Time range button helper
@@ -201,7 +201,7 @@ export const ReportsHeader: React.FC<Props> = (props) => {
                 )}
 
                 {/* Job Group Filter - Only for KPI tab */}
-                {showJobGroupFilter && (
+                {showstringFilter && (
                     <div className="relative">
                         <button
                             onClick={() => props.setShowGroupDropdown(!props.showGroupDropdown)}
@@ -209,9 +209,9 @@ export const ReportsHeader: React.FC<Props> = (props) => {
                         >
                             <Filter className="w-3.5 h-3.5 text-gray-400" />
                             <span className="font-medium text-gray-700">
-                                {props.selectedJobGroups.length === Object.values(JobGroup).length
+                                {props.selectedstrings.length === 0
                                     ? 'Tất cả nhóm'
-                                    : `${props.selectedJobGroups.length} nhóm`}
+                                    : `${props.selectedstrings.length} nhóm`}
                             </span>
                         </button>
 
@@ -221,16 +221,16 @@ export const ReportsHeader: React.FC<Props> = (props) => {
                                 <div className="absolute top-full right-0 mt-1 w-64 bg-white border rounded-lg shadow-xl z-50 flex flex-col p-2">
                                     <div className="text-xs font-bold text-gray-500 uppercase px-2 mb-2">Nhóm công việc</div>
                                     <div className="flex gap-2 mb-2 border-b pb-2">
-                                        <button onClick={() => props.toggleAllJobGroups(true)} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 flex-1">Chọn tất cả</button>
-                                        <button onClick={() => props.toggleAllJobGroups(false)} className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded hover:bg-gray-100 flex-1">Bỏ chọn</button>
+                                        <button onClick={() => props.toggleAllstrings(true)} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 flex-1">Chọn tất cả</button>
+                                        <button onClick={() => props.toggleAllstrings(false)} className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded hover:bg-gray-100 flex-1">Bỏ chọn</button>
                                     </div>
                                     <div className="space-y-1">
-                                        {Object.values(JobGroup).map(g => (
+                                        {(props.selectedstrings || []).map(g => (
                                             <label key={g} className="flex items-center px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer">
                                                 <input
                                                     type="checkbox"
-                                                    checked={props.selectedJobGroups.includes(g)}
-                                                    onChange={() => props.toggleJobGroup(g)}
+                                                    checked={props.selectedstrings.includes(g)}
+                                                    onChange={() => props.togglestring(g)}
                                                     className="rounded text-blue-600 focus:ring-blue-500 mr-2 h-4 w-4"
                                                 />
                                                 <div className="text-sm text-gray-700">{g}</div>

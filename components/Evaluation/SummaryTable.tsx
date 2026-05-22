@@ -7,7 +7,7 @@
 import React, { useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { auth } from '../../services/firebaseConfig';
-import { Role, EvaluationPeriod, JobGroup } from '../../types';
+import { Role, EvaluationPeriod } from '../../types';
 import { useEvaluationsQuery } from '../../hooks/useEvaluationQuery';
 import { isDTGroup } from '../../utils/permissions';
 import { BarChart3, Info } from 'lucide-react';
@@ -59,7 +59,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ openPeriod, employeeId }) =
         let points = 0;
         myItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group === JobGroup.Training) {
+            if (job?.group === 'Đào tạo') {
                 points += (job.standardPoint || 0) * (item.coefficient || 1);
             }
         });
@@ -82,7 +82,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ openPeriod, employeeId }) =
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Livechat) return;
+            if (job?.group !== 'Livechat') return;
 
             if (!jobStats[job.id]) {
                 jobStats[job.id] = { total: 0, completed: 0, offHours: 0, points: 0 };
@@ -100,7 +100,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ openPeriod, employeeId }) =
             }
         });
 
-        const livechatJobs = jobs.filter(j => j.group === JobGroup.Livechat && j.isActive);
+        const livechatJobs = jobs.filter(j => j.group === 'Livechat' && j.isActive);
         let totalFixedPoints = 0;
         let totalRequests = 0;
 

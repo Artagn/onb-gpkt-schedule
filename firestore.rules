@@ -109,5 +109,29 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
+
+    // ========== JOB GROUPS (Nhóm công việc) ==========
+    match /jobGroups/{groupId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== CARE CAMPAIGNS (Chiến dịch chăm sóc KH) ==========
+    match /care_campaigns/{campaignId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== CARE REPORTS (Báo cáo chăm sóc KH hàng ngày) ==========
+    match /care_reports/{reportId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ========== CARE METRICS (Chỉ tiêu chăm sóc KH) ==========
+    match /care_metrics/{metricId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
   }
 }

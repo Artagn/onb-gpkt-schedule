@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Employee, EmployeeRank, JobGroup, Role, Status, TimeFrame } from '../../types';
+import { Employee, EmployeeRank, Role, Status, TimeFrame } from '../../types';
 import { employeesService } from '../../services/firestoreService';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAddEmployeeMutation, useUpdateEmployeeMutation, useDeleteEmployeeMutation, EMPLOYEE_KEYS } from '../../hooks/useEmployeesQuery';
@@ -209,7 +209,7 @@ export const useEmployeeManager = (): UseEmployeeManagerReturn => {
 
                     const jobGroups = jobGroupsStr.split(',')
                         .map(s => s.trim())
-                        .filter(s => Object.values(JobGroup).includes(s as JobGroup)) as JobGroup[];
+                        .filter(s => s.length > 0);
 
                     const timeFrames = timeFramesStr.split(',')
                         .map(s => s.trim())

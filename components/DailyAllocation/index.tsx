@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Employee, Job, DailyAllocation as DailyAllocationType, ScheduleItem, LeaveRequest, Role, JobGroup } from '../../types';
+import { Employee, Job, DailyAllocation as DailyAllocationType, ScheduleItem, LeaveRequest, Role } from '../../types';
 import { format, isSameDay } from 'date-fns';
 import { Filter, ChevronDown, ChevronUp, Save, AlertCircle, Calendar } from 'lucide-react';
 import { useDailyAllocation, DatePreset } from './useDailyAllocation';

@@ -1,5 +1,5 @@
 import * as jose from 'jose';
-import { Employee, Job, EmployeeRank, JobGroup, Role, Status, TimeFrame } from '../types';
+import { Employee, Job, EmployeeRank,  Role, Status, TimeFrame } from '../types';
 
 // CREDENTIALS
 const SPREADSHEET_ID = '1NpZYVdQAhg1X7gpLaoRV-c1F0P5qusFnS5V-fq47F2Q';
@@ -179,7 +179,7 @@ function mapEmployees(rows: any[][], kpiRows: any[][]): Employee[] {
             fullName: String(row[0] || 'Unknown'),
             email: email,
             rank: (row[2] as EmployeeRank) || EmployeeRank.None,
-            jobGroups: parseEnumArray<JobGroup>(String(row[3] || ''), Object.values(JobGroup)),
+            jobGroups: String(row[3] || '').split(',').map(s => s.trim()).filter(s => s.length > 0) as string[],
             timeFrames: parseEnumArray<TimeFrame>(String(row[4] || ''), Object.values(TimeFrame)),
             role: (row[5] as Role) || Role.Staff,
             status: (row[6] as Status) || Status.Inactive,
@@ -199,7 +199,7 @@ function mapJobs(rows: any[][]): Job[] {
         return {
             id: `sheet-job-${index}`,
             name: String(row[0] || 'Unnamed Job'),
-            group: (row[1] as JobGroup) || JobGroup.Other,
+            group: (row[1] as string) || 'Khác',
             classification: row[2] as any,
             standardPoint: parseFloat(String(row[3]).replace(',', '.')) || 0, // Handle 1,5 -> 1.5
             durationMinutes: parseInt(row[4]) || 0,

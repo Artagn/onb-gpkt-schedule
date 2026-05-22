@@ -2,7 +2,7 @@
 import React from 'react';
 import { Calendar, AlertCircle, ListTodo, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { ScheduleItem, Job, Employee, SubJob, JobGroup } from '../../types';
+import { ScheduleItem, Job, Employee, SubJob } from '../../types';
 import EmptyState from '../common/EmptyState';
 
 interface Props {

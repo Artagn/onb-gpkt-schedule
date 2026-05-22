@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Job, JobGroup, SubJob } from '../../types';
+import { Job,  SubJob, JobGroupDef } from '../../types';
 import { AlertCircle, Upload } from 'lucide-react';
 import { DeleteConfirmState, ImportMode } from './useJobManager';
 
@@ -43,6 +43,7 @@ interface JobEditModalProps {
     isEditing: string | null;
     editForm: Partial<Job>;
     setEditForm: (form: Partial<Job>) => void;
+    jobGroups: JobGroupDef[];
     onSave: () => void;
     onCancel: () => void;
 }
@@ -51,6 +52,7 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
     isEditing,
     editForm,
     setEditForm,
+    jobGroups,
     onSave,
     onCancel
 }) => {
@@ -67,20 +69,23 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Nhóm</label>
-                        <select className="mt-1 block w-full border rounded p-2" value={editForm.group || JobGroup.Other} onChange={e => setEditForm({ ...editForm, group: e.target.value as JobGroup })}>
-                            {Object.values(JobGroup).map(v => <option key={v} value={v}>{v}</option>)}
+                        <select className="mt-1 block w-full border rounded p-2" value={editForm.group || ''} onChange={e => setEditForm({ ...editForm, group: e.target.value as string, classification: e.target.value === 'Đào tạo' ? editForm.classification : undefined })}>
+                            <option value="">-- Chọn nhóm --</option>
+                            {jobGroups.filter(g => g.isActive).map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Phân loại (Đào tạo)</label>
-                        <select className="mt-1 block w-full border rounded p-2" disabled={editForm.group !== JobGroup.Training} value={editForm.classification || ''} onChange={e => setEditForm({ ...editForm, classification: e.target.value as any })}>
-                            <option value="">Không</option>
-                            <option value="Nghiệp vụ">Nghiệp vụ</option>
-                            <option value="Lĩnh vực">Lĩnh vực</option>
-                            <option value="Trực tiếp">Trực tiếp</option>
-                            <option value="Nội bộ">Nội bộ</option>
-                        </select>
-                    </div>
+                    {editForm.group === 'Đào tạo' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Phân loại</label>
+                            <select className="mt-1 block w-full border rounded p-2" value={editForm.classification || ''} onChange={e => setEditForm({ ...editForm, classification: (e.target.value || undefined) as any })}>
+                                <option value="">-- Chọn phân loại --</option>
+                                <option value="Nghiệp vụ">Nghiệp vụ</option>
+                                <option value="Lĩnh vực">Lĩnh vực</option>
+                                <option value="Nội bộ">Nội bộ</option>
+                                <option value="Trực tiếp">Trực tiếp</option>
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Điểm chuẩn</label>
                         <input type="number" step="0.1" className="mt-1 block w-full border rounded p-2" value={editForm.standardPoint || 0} onChange={e => setEditForm({ ...editForm, standardPoint: parseFloat(e.target.value) })} />
@@ -103,6 +108,65 @@ export const JobEditModal: React.FC<JobEditModalProps> = ({
                 <div className="mt-6 flex justify-end gap-3">
                     <button onClick={onCancel} className="px-4 py-2 border rounded hover:bg-gray-50">Hủy</button>
                     <button onClick={onSave} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Lưu</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ========== JOB GROUP EDIT MODAL ==========
+interface JobGroupEditModalProps {
+    isEditingGroup: string | null;
+    editGroupForm: Partial<JobGroupDef>;
+    setEditGroupForm: (form: Partial<JobGroupDef>) => void;
+    onSave: () => void;
+    onCancel: () => void;
+}
+
+export const JobGroupEditModal: React.FC<JobGroupEditModalProps> = ({
+    isEditingGroup,
+    editGroupForm,
+    setEditGroupForm,
+    onSave,
+    onCancel
+}) => {
+    if (!isEditingGroup) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all scale-100">
+                <h3 className="text-lg font-bold mb-4">{isEditingGroup === 'new' ? 'Thêm mới' : 'Chỉnh sửa'} Nhóm Công Việc</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Tên nhóm</label>
+                        <input className="mt-1 block w-full border rounded p-2" value={editGroupForm.name || ''} onChange={e => setEditGroupForm({ ...editGroupForm, name: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Màu sắc hiển thị</label>
+                        <select className={`mt-1 block w-full border rounded p-2 ${editGroupForm.colorClass}`} value={editGroupForm.colorClass || 'bg-gray-100 text-gray-800'} onChange={e => setEditGroupForm({ ...editGroupForm, colorClass: e.target.value })}>
+                            <option value="bg-blue-100 text-blue-800" className="bg-blue-100 text-blue-800">Xanh dương</option>
+                            <option value="bg-green-100 text-green-800" className="bg-green-100 text-green-800">Xanh lá</option>
+                            <option value="bg-purple-100 text-purple-800" className="bg-purple-100 text-purple-800">Tím</option>
+                            <option value="bg-orange-100 text-orange-800" className="bg-orange-100 text-orange-800">Cam</option>
+                            <option value="bg-pink-100 text-pink-800" className="bg-pink-100 text-pink-800">Hồng</option>
+                            <option value="bg-yellow-100 text-yellow-800" className="bg-yellow-100 text-yellow-800">Vàng</option>
+                            <option value="bg-gray-100 text-gray-800" className="bg-gray-100 text-gray-800">Xám</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Thứ tự ưu tiên</label>
+                        <input type="number" className="mt-1 block w-full border rounded p-2" value={editGroupForm.order || 0} onChange={e => setEditGroupForm({ ...editGroupForm, order: parseInt(e.target.value) })} />
+                    </div>
+                    <div className="flex items-center">
+                        <label className="flex items-center">
+                            <input type="checkbox" className="w-4 h-4" checked={editGroupForm.isActive !== false} onChange={e => setEditGroupForm({ ...editGroupForm, isActive: e.target.checked })} />
+                            <span className="ml-2 text-sm font-medium text-gray-700">Đang sử dụng</span>
+                        </label>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                    <button onClick={onCancel} className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-100 font-medium">Hủy</button>
+                    <button onClick={onSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md">Lưu</button>
                 </div>
             </div>
         </div>

@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
-import { Role, ScheduleItem, DailyAllocation, Status, LeaveRequest, JobGroup } from '../../types';
+import { Role, ScheduleItem, DailyAllocation, Status, LeaveRequest } from '../../types';
 import { isSameDay } from 'date-fns';
 import { allocationsService, auditService } from '../../services/firestoreService';
 import toast from 'react-hot-toast';
@@ -85,7 +85,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
     const [showJobFilter, setShowJobFilter] = useState(false);
 
     useEffect(() => {
-        const dailyJobs = jobs.filter(j => j.group === JobGroup.Daily && j.isActive).map(j => j.id);
+        const dailyJobs = jobs.filter(j => j.group === 'Chia hàng ngày' && j.isActive).map(j => j.id);
         if (dailyJobs.length > 0 && filterJobIds.length === 0) {
             setFilterJobIds(dailyJobs);
         }
@@ -279,7 +279,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
         const updatedItem = { ...selectedTask, status, note: actionNote };
         const job = jobs.find(j => j.id === selectedTask.jobId);
 
-        if (status === 'Completed' && job?.group === JobGroup.Training) {
+        if (status === 'Completed' && job?.group === 'Đào tạo') {
             updatedItem.customerParticipants = trainingMetrics.participants;
             updatedItem.customerSurveys = trainingMetrics.surveys;
             updatedItem.customerCapable = trainingMetrics.capable;

@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-04-24  
-> **Version:** v3.19.3  
+> **Last Updated:** 2026-05-14  
+> **Version:** v3.22.3  
 > **Status:** ✅ Production
 
 ---
@@ -15,6 +15,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 - ✅ **Smart Swap** - Marketplace đổi ca, auto-swap Nghỉ bù khi đổi ca Tối
 - ✅ **Leave Balance Wallet** - Tính điểm nghỉ bù T7/CN/Lễ qua Cloud Functions
 - ✅ **Monthly Evaluation** - Đánh giá KPI theo nhóm DT/KS với workflow duyệt
+- ✅ **Public Share** - Chia sẻ lịch đào tạo công khai qua link cố định, tự động lọc ngày lễ, tối ưu CDN Cache chi phí $0
 - ✅ **PWA Mobile** - Installable app với offline support
 
 ---
@@ -83,6 +84,16 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-05-22 | v3.22.4 | Customer Care Stats Fixes | Sửa lỗi NV ngưng hoạt động hiển thị trong bảng. Sửa công thức mẫu số Tiến độ chiến dịch lấy tổng targets toàn phòng thay vì max. Cải thiện UX bảng Thống kê với sticky columns và color-coded groups. |
+| 2026-05-14 | v3.22.3 | Customer Care Input Form Fixes | Sửa lỗi không hiển thị đúng target tuần ở các ngày giữa tuần và sửa lỗi khó xóa số liệu trong ô nhập Lũy kế cuối ngày. |
+| 2026-05-12 | v3.22.2 | Customer Care Input Fix | Thêm dòng tổng cộng vào bảng chi tiết chiến dịch trong form nhập liệu hàng ngày. |
+| 2026-05-12 | v3.22.1 | Customer Care Report Enhancements | Thêm dòng tổng cộng chiến dịch hàng ngày và cột tổng cộng (% HT) cho bảng thống kê nhân viên. |
+| 2026-05-11 | v3.22.0 | Dynamic Metrics for Customer Care | Chuyển đổi 4 chỉ tiêu cố định thành danh sách động quản lý từ giao diện. Gộp tab Chiến dịch và Chỉ tiêu vào tab Cấu hình. |
+| 2026-05-11 | v3.21.0 | Customer Care Module | Ra mắt module Báo cáo Chăm sóc KH dành riêng cho nhóm ONB_KS. Hỗ trợ nhập liệu hàng ngày, quản lý chiến dịch động, thống kê tuần/tháng và phân quyền full access cho nhóm KS. |
+| 2026-05-08 | v3.20.0 | Public Schedule Share V2 | Ra mắt tính năng chia sẻ lịch Đào tạo công khai. Lịch ngày/tuần cố định, không cần đăng nhập. Tự động nhận diện Nghỉ Lễ, loại trừ Livechat. Áp dụng Firebase CDN Cache (max-age 10p) đưa chi phí vận hành về $0. |
+| 2026-05-05 | v3.19.6 | Hotfix: JobManager Crash & Classification | Fix React #300 crash (duplicate `useJobManager()` calls), restore `classification` field bị mất ở Job interface/schema/form, thêm Firestore rules cho `jobGroups` collection |
+| 2026-05-05 | v3.19.5 | Dynamic JobGroup Migration | Xóa triệt để `JobGroup` enum cũ, chuyển 17 file sang dùng dynamic `JobGroupDef` từ Firestore. Fix build errors, deploy thành công |
+| 2026-05-05 | v3.19.4 | Extended Date Range | Mở rộng phạm vi fetch dữ liệu ±10 ngày (5 hooks) để đảm bảo hiển thị lịch sử phân công cũ hơn |
 | 2026-04-24 | v3.19.3 | Typography & UI Polish | Thêm font Inter, EmptyState component, xóa dead CDN code, cập nhật PWA theme |
 | 2026-03-27 | v3.19.2 | Livechat Hotfix & UI | Sửa lỗi toán học khi gom nhóm Report, điều chỉnh công thức tính số ngày quy đổi thay cho % Hoàn thành |
 | 2026-03-27 | v3.19.0 | Cập nhật Tính Điểm Livechat | Thay đổi logic sang nhập số liệu Thực Hiện và TC/buổi thay vì xếp loại theo độ khó. Cải tiến giao diện và tương thích dữ liệu cũ. |
@@ -129,6 +140,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | **Swap Market** | ✅ Stable | Smart swap with nghỉ bù auto-link |
 | **Monthly Evaluation** | ✅ Stable | DT/KS forms, Review Manager |
 | **Reports & KPI** | ✅ Stable | Charts, Excel export, Livechat/Training summaries |
+| **Public Share** | ✅ Deployed | v3.20.0 | Caching API, Lịch tuần/ngày |
 | **PWA Mobile** | ✅ Deployed | v3.18.0 |
 
 ---

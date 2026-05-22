@@ -1,12 +1,20 @@
 import { z } from 'zod';
-import { JobGroup, Role, Status, TimeFrame, EmployeeRank } from './types';
+import { Role, Status, TimeFrame, EmployeeRank } from './types';
 
 // Enums
-export const JobGroupSchema = z.nativeEnum(JobGroup);
+export const JobGroupSchema = z.string();
 export const RoleSchema = z.nativeEnum(Role);
 export const StatusSchema = z.nativeEnum(Status);
 export const TimeFrameSchema = z.nativeEnum(TimeFrame);
 export const EmployeeRankSchema = z.nativeEnum(EmployeeRank);
+
+export const JobGroupDefSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    colorClass: z.string(),
+    isActive: z.boolean().default(true),
+    order: z.number().default(0),
+});
 
 // --- 1. Employee Schema ---
 export const EvaluationGroupSchema = z.enum(['ONB_DT', 'ONB_KS', 'KS']);
@@ -34,7 +42,7 @@ export const JobSchema = z.object({
     id: z.string(),
     name: z.string(),
     group: JobGroupSchema,
-    classification: z.string().optional().nullable(),
+    classification: z.enum(['Nghiệp vụ', 'Lĩnh vực', 'Nội bộ', 'Trực tiếp']).optional().nullable(),
     standardPoint: z.number().default(0),
     difficulty: z.number().default(1),
     durationMinutes: z.number().default(60),
@@ -275,4 +283,42 @@ export const EmployeeEvaluationSchema = z.object({
         lockedAt: z.string(),
         lockedBy: z.string(),
     }).optional(),
+});
+
+// --- 8. Customer Care Schemas (Chăm sóc KH - ONB_KS) ---
+
+export const CareMetricSchema = z.object({
+    id: z.string(),
+    name: z.string().min(1, 'Tên chỉ tiêu không được trống'),
+    code: z.string().min(1, 'Mã chỉ tiêu không được trống'),
+    unit: z.string().optional(),
+    isActive: z.boolean().default(true),
+    order: z.number().default(0),
+    createdAt: z.string(),
+    updatedAt: z.string().optional(),
+});
+
+export const CareCampaignSchema = z.object({
+    id: z.string(),
+    name: z.string().min(1, 'Tên chiến dịch không được trống'),
+    code: z.string().min(1, 'Mã chiến dịch không được trống'),
+    description: z.string().optional(),
+    isActive: z.boolean().default(true),
+    order: z.number().default(0),
+    createdAt: z.string(),
+    updatedAt: z.string().optional(),
+});
+
+export const CareReportSchema = z.object({
+    id: z.string(),
+    employeeId: z.string(),
+    date: z.string(),
+    weekId: z.string(),
+    dailyMetrics: z.record(z.string(), z.number()).default({}),
+    campaignDetails: z.record(z.string(), z.object({
+        weeklyTarget: z.number().optional(),
+        dailyCompleted: z.number().default(0),
+    })).default({}),
+    createdAt: z.string(),
+    updatedAt: z.string(),
 });

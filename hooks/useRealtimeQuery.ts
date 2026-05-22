@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { ZodSchema } from 'zod';
 import { subscribeToCollectionWithDateRange, COLLECTIONS, scheduleService, leavesService, allocationsService } from '../services/firestoreService';
-import { format, subMonths, addWeeks, startOfMonth } from 'date-fns';
+import { format, subMonths, addWeeks, startOfMonth, addDays, subDays } from 'date-fns';
 import { ScheduleItem, LeaveRequest, DailyAllocation } from '../types';
 import { ScheduleItemSchema, LeaveRequestSchema, DailyAllocationSchema } from '../schemas';
 
@@ -28,8 +28,8 @@ interface RealtimeQueryOptions {
 function getDefaultDateRange() {
     const now = new Date();
     return {
-        start: format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd'),
-        end: format(addWeeks(now, 3), 'yyyy-MM-dd'),
+        start: format(subDays(startOfMonth(subMonths(now, 1)), 10), 'yyyy-MM-dd'),
+        end: format(addDays(addWeeks(now, 3), 10), 'yyyy-MM-dd'),
     };
 }
 

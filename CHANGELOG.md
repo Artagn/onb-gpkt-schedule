@@ -5,6 +5,60 @@
 
 ---
 
+## [3.22.3] - 2026-05-14 🐛 Customer Care Input Form Fixes
+**Summary:** Sửa lỗi không hiển thị đúng target tuần ở các ngày giữa tuần và sửa lỗi khó xóa số liệu trong ô nhập Lũy kế cuối ngày.
+
+### Fixed
+- **DailyReportForm:** Cập nhật logic để tự động lấy `weeklyTarget` từ các ngày khác trong tuần nếu bản ghi hiện tại có target = 0.
+- **DailyReportForm:** Cho phép ô nhập Lũy kế cuối ngày phản hồi chính xác thao tác xóa phím bằng cách không ép `dailyCompleted` lớn hơn 0 ngay lập tức khi đang gõ (`onChange`), chỉ chuẩn hóa lại khi hoàn tất (`onBlur` hoặc `Save`).
+
+---
+
+## [3.22.2] - 2026-05-12 📊 Customer Care Input Fix
+**Summary:** Thêm dòng tổng cộng vào bảng chi tiết chiến dịch trong form nhập liệu hàng ngày.
+
+---
+
+## [3.22.1] - 2026-05-12 📊 Customer Care Report Enhancements
+**Summary:** Bổ sung dòng tổng cộng cho bảng chiến dịch hàng ngày và cột tổng cộng kèm % hoàn thành cho bảng thống kê nhân viên.
+
+### Added
+- **ReportDashboard:** Thêm dòng "Σ Tổng số các chiến dịch" vào bảng chi tiết từng ngày.
+- **ReportDashboard:** Thêm cột "Tổng cộng (% HT)" vào bảng chi tiết theo nhân viên, tính toán dựa trên tổng Target của tất cả chiến dịch.
+- **ReportDashboard:** Cập nhật dòng "Tổng cộng toàn phòng" hiển thị grand total cho toàn bộ chiến dịch.
+
+---
+
+## [3.22.0] - 2026-05-11 ⚙️ Dynamic Metrics for Customer Care
+**Summary:** Chuyển đổi 4 chỉ tiêu cố định thành danh sách động quản lý từ giao diện. Gộp tab Chiến dịch và Chỉ tiêu vào tab Cấu hình.
+
+---
+
+## [3.21.0] - 2026-05-11 🎧 Customer Care Module
+**Summary:** Ra mắt module Báo cáo Chăm sóc KH dành riêng cho nhóm ONB_KS. Hỗ trợ nhập liệu hàng ngày, quản lý chiến dịch động, thống kê tuần/tháng.
+
+---
+
+## [3.20.0] - 2026-05-08 🔗 Public Schedule Share V2
+**Summary:** Ra mắt tính năng chia sẻ lịch Đào tạo công khai. Lịch ngày/tuần cố định, không cần đăng nhập. Áp dụng Firebase CDN Cache chi phí $0.
+
+---
+
+## [3.19.6] - 2026-05-05 🐛 Hotfix: JobManager & Classification
+**Summary:** Fix React #300 crash, restore `classification` field bị mất, thêm Firestore rules cho `jobGroups`.
+
+---
+
+## [3.19.5] - 2026-05-05 🏗️ Dynamic JobGroup Migration
+**Summary:** Xóa triệt để `JobGroup` enum cũ, chuyển sang dùng dynamic `JobGroupDef` từ Firestore.
+
+---
+
+## [3.19.4] - 2026-05-05 🗓️ Extended Date Range
+**Summary:** Mở rộng phạm vi fetch dữ liệu ±10 ngày để đảm bảo hiển thị lịch sử phân công cũ hơn.
+
+---
+
 ## [3.19.3] - 2026-04-24 🎨 Typography & UI Polish
 **Summary:** Nâng cấp typography (Inter font), thêm EmptyState component thống nhất, dọn dẹp HTML và cập nhật PWA theme.
 

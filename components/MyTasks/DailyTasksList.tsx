@@ -2,7 +2,7 @@
 import React from 'react';
 import { ListTodo, Filter, ChevronUp, ChevronDown, Save, Clock } from 'lucide-react';
 import { format } from 'date-fns';
-import { DailyAllocation, Job, Employee, JobGroup } from '../../types';
+import { DailyAllocation, Job, Employee } from '../../types';
 import EmptyState from '../common/EmptyState';
 
 interface Props {
@@ -28,7 +28,7 @@ const DailyTasksList: React.FC<Props> = ({
 }) => {
 
     const sortedAllocations = myDailyAllocations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const dailyJobsList = jobs.filter(j => j.group === JobGroup.Daily && j.isActive);
+    const dailyJobsList = jobs.filter(j => j.group === 'Chia hàng ngày' && j.isActive);
 
     const getJob = (id: string) => jobs.find(j => j.id === id);
 

@@ -1,4 +1,4 @@
-import { Employee, Job, ScheduleItem, SchedulePattern, LeaveRequest, JobGroup, TimeFrame, EmployeeRank, Status, Holiday, WorkPeriod } from '../types';
+import { Employee, Job, ScheduleItem, SchedulePattern, LeaveRequest,  TimeFrame, EmployeeRank, Status, Holiday, WorkPeriod } from '../types';
 import { format, addDays, isSameDay, isSameWeek, isSameMonth, startOfMonth, endOfMonth, isWithinInterval, startOfWeek } from 'date-fns';
 
 export interface SchedulerInput {
@@ -94,7 +94,7 @@ const countLinhVucInWeek = (empId: string, schedule: ScheduleItem[], targetDate:
         if (!isSameWeek(new Date(s.date), targetDate, { weekStartsOn: 1 })) return false;
         if (!s.employeeIds.includes(empId)) return false;
         const j = jobs.find(job => job.id === s.jobId);
-        return j?.group === JobGroup.Training && j?.classification === 'Lĩnh vực';
+        return j?.group === 'Đào tạo' && j?.classification === 'Lĩnh vực';
     }).length;
 };
 
@@ -103,12 +103,12 @@ const hasLivechatYesterday = (empId: string, day: Date, schedule: ScheduleItem[]
     return schedule.some(s =>
         isSameDay(new Date(s.date), yesterday) &&
         s.employeeIds.includes(empId) &&
-        jobs.find(j => j.id === s.jobId)?.group === JobGroup.Livechat
+        jobs.find(j => j.id === s.jobId)?.group === 'Livechat'
     );
 };
 
 const hasLivechatOnDay = (empId: string, day: Date, schedule: ScheduleItem[], jobs: Job[]) => {
-    return schedule.some(s => isSameDay(new Date(s.date), day) && s.employeeIds.includes(empId) && jobs.find(j => j.id === s.jobId)?.group === JobGroup.Livechat);
+    return schedule.some(s => isSameDay(new Date(s.date), day) && s.employeeIds.includes(empId) && jobs.find(j => j.id === s.jobId)?.group === 'Livechat');
 };
 
 const getWeeklyKpiPoints = (empId: string, schedule: ScheduleItem[], targetDate: Date, jobs: Job[]): number => {
@@ -229,7 +229,7 @@ export function generateWeeklySchedule({
         else if (restDays >= 2) score += 20;
 
         // 4. "Lĩnh vực" Limit
-        if (job.group === JobGroup.Training && job.classification === 'Lĩnh vực') {
+        if (job.group === 'Đào tạo' && job.classification === 'Lĩnh vực') {
             const lvCount = countLinhVucInWeek(emp.id, tempSchedule, targetDate, jobs);
             if (lvCount >= 2) return -9999;
             score -= (lvCount * 30);
@@ -242,7 +242,7 @@ export function generateWeeklySchedule({
         else if (repetition >= 1) score -= 15;
 
         // 6. Split-Shift Penalty
-        if (job.group !== JobGroup.Livechat && (shift === 'Sáng' || shift === 'Chiều')) {
+        if (job.group !== 'Livechat' && (shift === 'Sáng' || shift === 'Chiều')) {
             if (!hasPairShift(emp.id, day, shift, tempSchedule)) {
                 score -= 25;
             }
@@ -345,7 +345,7 @@ export function generateWeeklySchedule({
     // ================= PHASE 2: LIVECHAT =================
     const livechatSlots = slotsToFill.filter(s => {
         const j = jobs.find(job => job.id === s.jobId);
-        return j?.group === JobGroup.Livechat && !filledSlotIds.has(s.id);
+        return j?.group === 'Livechat' && !filledSlotIds.has(s.id);
     });
 
     const livechatMap = new Map<string, Map<string, { morning: ScheduleItem[], afternoon: ScheduleItem[] }>>();
@@ -372,7 +372,7 @@ export function generateWeeklySchedule({
                 const isWeekend = day.getDay() === 6 || day.getDay() === 0;
 
                 let candidates = activeEmployees.filter(emp => {
-                    if (!emp.jobGroups.includes(JobGroup.Livechat)) return false;
+                    if (!emp.jobGroups.includes('Livechat')) return false;
                     if (!emp.timeFrames.includes(TimeFrame.Morning) || !emp.timeFrames.includes(TimeFrame.Afternoon)) return false;
                     if (isWeekend && !emp.timeFrames.includes(TimeFrame.Weekend)) return false;
                     if (onLeave(emp.id, day, 'Sáng', leaves) || onLeave(emp.id, day, 'Chiều', leaves)) return false;
@@ -403,7 +403,7 @@ export function generateWeeklySchedule({
                     const load = newSchedule.filter(s =>
                         isSameMonth(new Date(s.date), targetDate) &&
                         s.employeeIds.includes(emp.id) &&
-                        jobs.find(j => j.id === s.jobId)?.group === JobGroup.Livechat
+                        jobs.find(j => j.id === s.jobId)?.group === 'Livechat'
                     ).length;
                     livechatLoadMap.set(emp.id, load);
                 });
@@ -517,7 +517,7 @@ export function generateWeeklySchedule({
     const eveningCount = newSchedule.filter(s => s.shift === 'Tối' && isSameWeek(new Date(s.date), targetDate, { weekStartsOn: 1 })).length;
     const livechatCount = newSchedule.filter(s => {
         const job = jobs.find(j => j.id === s.jobId);
-        return job?.group === JobGroup.Livechat && isSameWeek(new Date(s.date), targetDate, { weekStartsOn: 1 });
+        return job?.group === 'Livechat' && isSameWeek(new Date(s.date), targetDate, { weekStartsOn: 1 });
     }).length;
 
     return {

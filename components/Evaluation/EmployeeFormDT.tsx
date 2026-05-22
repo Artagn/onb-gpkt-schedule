@@ -8,7 +8,7 @@ import { Save, Calculator, Loader2, BookOpen, MessageSquare, Briefcase, AlertTri
 import { useOpenPeriodQuery, useEvaluationMetricsQuery, useEmployeeEvaluationQuery, useEvaluationMutation, useEvaluationsQuery } from '../../hooks/useEvaluationQuery';
 import { useData } from '../../context/DataContext';
 import { auth } from '../../services/firebaseConfig';
-import { EmployeeEvaluation, EvaluationMetric, JobGroup, Job, Role } from '../../types';
+import { EmployeeEvaluation, EvaluationMetric,  Job, Role } from '../../types';
 import { isDTGroup } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
@@ -112,7 +112,7 @@ export default function EmployeeFormDT({ readOnly = false, employeeId, periodId 
 
     // ========== GET LIVECHAT JOBS ==========
     const livechatJobs = useMemo(() => {
-        return jobs.filter(j => j.group === JobGroup.Livechat && j.isActive);
+        return jobs.filter(j => j.group === 'Livechat' && j.isActive);
     }, [jobs]);
 
     // ========== AUTO CALCULATE TRAINING DETAILS BY CLASSIFICATION ==========
@@ -141,7 +141,7 @@ export default function EmployeeFormDT({ readOnly = false, employeeId, periodId 
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Training) return;
+            if (job?.group !== 'Đào tạo') return;
 
             const coefficient = item.coefficient || 1;
             const points = (job.standardPoint || 0) * coefficient;
@@ -285,7 +285,7 @@ export default function EmployeeFormDT({ readOnly = false, employeeId, periodId 
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Livechat) return;
+            if (job?.group !== 'Livechat') return;
 
             if (!jobStats[job.id]) {
                 jobStats[job.id] = { total: 0, points: 0 };

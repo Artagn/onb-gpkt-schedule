@@ -4,21 +4,22 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Job, JobGroup, SubJob } from '../../types';
+import { Job,  SubJob } from '../../types';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { jobsService, subJobsService } from '../../services/firestoreService';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAddJobMutation, useUpdateJobMutation, useDeleteJobMutation, JOB_KEYS } from '../../hooks/useJobsQuery';
 import { useAddSubJobMutation, useUpdateSubJobMutation, useDeleteSubJobMutation, SUBJOB_KEYS } from '../../hooks/useSubJobsQuery';
+import { useAddJobGroupMutation, useUpdateJobGroupMutation, useDeleteJobGroupMutation } from '../../hooks/useJobGroupsQuery';
 import { useData } from '../../context/DataContext';
 
-export type Tab = 'jobs' | 'subJobs';
+export type Tab = 'jobGroups' | 'jobs' | 'subJobs';
 export type ImportMode = 'none' | 'jobs' | 'subJobs';
-export type DeleteConfirmState = { type: 'job' | 'subJob'; id: string; name?: string } | null;
+export type DeleteConfirmState = { type: 'jobGroup' | 'job' | 'subJob'; id: string; name?: string } | null;
 
 export const useJobManager = () => {
-    const { jobs, subJobs, schedule } = useData();
+    const { jobs, subJobs, schedule, jobGroups } = useData();
     const queryClient = useQueryClient();
 
     // Mutations
@@ -28,6 +29,9 @@ export const useJobManager = () => {
     const addSubJobMutation = useAddSubJobMutation();
     const updateSubJobMutation = useUpdateSubJobMutation();
     const deleteSubJobMutation = useDeleteSubJobMutation();
+    const addJobGroupMutation = useAddJobGroupMutation();
+    const updateJobGroupMutation = useUpdateJobGroupMutation();
+    const deleteJobGroupMutation = useDeleteJobGroupMutation();
 
     // UI State
     const [activeTab, setActiveTab] = useState<Tab>('jobs');
@@ -37,6 +41,10 @@ export const useJobManager = () => {
     // Job Edit State
     const [isEditing, setIsEditing] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<Partial<Job>>({});
+
+    // JobGroup Edit State
+    const [isEditingGroup, setIsEditingGroup] = useState<string | null>(null);
+    const [editGroupForm, setEditGroupForm] = useState<Partial<any>>({});
 
     // SubJob Edit State
     const [isEditingSub, setIsEditingSub] = useState<string | null>(null);
@@ -105,8 +113,7 @@ export const useJobManager = () => {
             const newJob: Job = {
                 id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                 name: editForm.name || 'New Job',
-                group: editForm.group || JobGroup.Other,
-                classification: editForm.classification,
+                group: editForm.group || 'Khác',
                 standardPoint: editForm.standardPoint || 0,
                 difficulty: editForm.difficulty || 1,
                 durationMinutes: editForm.durationMinutes || 0,
@@ -122,6 +129,59 @@ export const useJobManager = () => {
     const handleCancelEditJob = () => {
         setIsEditing(null);
         setEditForm({});
+    };
+
+    // ========== JOB GROUP HANDLERS ==========
+    const handleEditJobGroup = (group: any) => {
+        setIsEditingGroup(group.id);
+        setEditGroupForm({ ...group });
+    };
+
+    const handleAddJobGroup = () => {
+        setIsEditingGroup('new');
+        setEditGroupForm({ isActive: true, order: jobGroups.length + 1, colorClass: 'bg-gray-100 text-gray-800' });
+    };
+
+    const handleDeleteJobGroupClick = (group: any) => {
+        const isInUse = jobs.some(j => j.group === group.name);
+        if (isInUse) {
+            toast.error(
+                `KHÔNG THỂ XÓA!\n\n` +
+                `Nhóm "${group.name}" đang được sử dụng trong Công việc.\n\n` +
+                `Gợi ý: Cập nhật các công việc liên quan trước khi xóa.`
+            );
+            return;
+        }
+        setDeleteConfirm({ type: 'jobGroup', id: group.id, name: group.name });
+    };
+
+    const handleSaveJobGroup = () => {
+        if (!editGroupForm.name?.trim()) {
+            toast.error("Tên nhóm không được để trống");
+            return;
+        }
+
+        if (isEditingGroup && isEditingGroup !== 'new' && editGroupForm.id) {
+            const updatedGroup = { ...jobGroups.find(g => g.id === editGroupForm.id)!, ...editGroupForm };
+            updateJobGroupMutation.mutate(updatedGroup);
+        } else {
+            const newGroup = {
+                id: `group_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                name: editGroupForm.name.trim(),
+                colorClass: editGroupForm.colorClass || 'bg-gray-100 text-gray-800',
+                isActive: editGroupForm.isActive !== undefined ? editGroupForm.isActive : true,
+                order: editGroupForm.order || jobGroups.length + 1
+            };
+            addJobGroupMutation.mutate(newGroup);
+        }
+
+        setIsEditingGroup(null);
+        setEditGroupForm({});
+    };
+
+    const handleCancelEditJobGroup = () => {
+        setIsEditingGroup(null);
+        setEditGroupForm({});
     };
 
     // ========== SUBJOB HANDLERS ==========
@@ -178,7 +238,9 @@ export const useJobManager = () => {
     const confirmDelete = async () => {
         if (!deleteConfirm) return;
 
-        if (deleteConfirm.type === 'job') {
+        if (deleteConfirm.type === 'jobGroup') {
+            deleteJobGroupMutation.mutate(deleteConfirm.id);
+        } else if (deleteConfirm.type === 'job') {
             deleteJobMutation.mutate(deleteConfirm.id);
         } else {
             deleteSubJobMutation.mutate(deleteConfirm.id);
@@ -219,17 +281,16 @@ export const useJobManager = () => {
                     if (row.length >= 1 && row[0]) {
                         const name = String(row[0]).trim();
                         const groupStr = String(row[1] || '').trim();
-                        const group = Object.values(JobGroup).find(g => g === groupStr) || JobGroup.Other;
-                        const classification = String(row[2]).trim() === 'Nghiệp vụ' || String(row[2]).trim() === 'Lĩnh vực' ? String(row[2]).trim() as any : undefined;
-                        const standardPoint = parseFloat(String(row[3]).replace(',', '.') || '0');
-                        const durationMinutes = parseInt(String(row[4]).trim() || '0');
-                        const difficulty = parseFloat(String(row[5]).replace(',', '.') || '1');
-                        const activeStr = String(row[6]).trim().toLowerCase();
+                        const group = groupStr || 'Khác';
+                        const standardPoint = parseFloat(String(row[2]).replace(',', '.') || '0');
+                        const durationMinutes = parseInt(String(row[3]).trim() || '0');
+                        const difficulty = parseFloat(String(row[4]).replace(',', '.') || '1');
+                        const activeStr = String(row[5]).trim().toLowerCase();
                         const isActive = activeStr === 'active' || activeStr === 'đang hoạt động' || activeStr === 'true' || activeStr === 'có' || true;
 
                         newJobs.push({
                             id: `job_imp_${Date.now()}_${idx}`,
-                            name, group, classification, standardPoint, durationMinutes, difficulty, isActive
+                            name, group, standardPoint, durationMinutes, difficulty, isActive
                         });
                     }
                 });
@@ -293,8 +354,8 @@ export const useJobManager = () => {
         const wb = XLSX.utils.book_new();
 
         if (importMode === 'jobs') {
-            const headers = ["Tên công việc", "Nhóm (Đào tạo/Livechat/Chia hàng ngày/Khác)", "Phân loại (Nghiệp vụ/Lĩnh vực)", "Điểm chuẩn", "Thời lượng (phút)", "Độ khó", "Trạng thái (Có/Không)"];
-            const example = ["Đào tạo A", "Đào tạo", "Nghiệp vụ", "1.5", "180", "1", "Có"];
+            const headers = ["Tên công việc", "Nhóm", "Điểm chuẩn", "Thời lượng (phút)", "Độ khó", "Trạng thái (Có/Không)"];
+            const example = ["Đào tạo A", "Đào tạo", "1.5", "180", "1", "Có"];
             const ws = XLSX.utils.aoa_to_sheet([headers, example]);
             XLSX.utils.book_append_sheet(wb, ws, "Jobs");
             XLSX.writeFile(wb, "Mau_Cong_Viec.xlsx");
@@ -368,6 +429,7 @@ export const useJobManager = () => {
 
     return {
         // Data
+        jobGroups,
         jobs,
         subJobs,
         filteredJobs,
@@ -380,6 +442,16 @@ export const useJobManager = () => {
         setImportMode,
         deleteConfirm,
         setDeleteConfirm,
+
+        // JobGroup Edit
+        isEditingGroup,
+        editGroupForm,
+        setEditGroupForm,
+        handleEditJobGroup,
+        handleAddJobGroup,
+        handleDeleteJobGroupClick,
+        handleSaveJobGroup,
+        handleCancelEditJobGroup,
 
         // Job Edit
         isEditing,

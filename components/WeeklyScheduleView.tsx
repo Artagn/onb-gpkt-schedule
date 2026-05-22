@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Job, SubJob, JobGroup } from '../types';
+import { Job, SubJob } from '../types';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Calendar, Copy, Check, ExternalLink, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
@@ -52,7 +52,7 @@ const WeeklyScheduleView: React.FC<Props> = () => {
     // 1. Filter and Map Jobs
     const trainingJobsMap = useMemo(() => {
         const map = new Map<string, string>();
-        jobs.filter(j => j.group === JobGroup.Training && j.classification)
+        jobs.filter(j => j.group === 'Đào tạo' && j.classification)
             .forEach(j => map.set(j.id, j.classification!));
         return map;
     }, [jobs]);
@@ -67,7 +67,7 @@ const WeeklyScheduleView: React.FC<Props> = () => {
 
             // Check Livechat
             const job = jobs.find(j => j.id === sub.jobId);
-            return job?.group === JobGroup.Livechat;
+            return job?.group === 'Livechat';
         });
 
         // Processor function
@@ -100,7 +100,7 @@ const WeeklyScheduleView: React.FC<Props> = () => {
             activeSubJobs.forEach(sub => {
                 // Check if job is Livechat. We need to access the job object.
                 const job = jobs.find(j => j.id === sub.jobId);
-                if (job?.group === JobGroup.Livechat) {
+                if (job?.group === 'Livechat') {
                     const key = sub.name.trim();
                     if (!grouped.has(key)) grouped.set(key, []);
                     grouped.get(key)!.push(sub);

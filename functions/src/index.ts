@@ -13,3 +13,6 @@ export { onScheduleUpdate, onLeaveApproved } from "./onLeaveBalanceUpdate";
 
 // Admin Tools
 export { recalculateAllBalances } from "./recalculateBalances";
+
+// Public APIs
+export { getPublicTrainingSchedule } from "./getPublicTrainingSchedule";

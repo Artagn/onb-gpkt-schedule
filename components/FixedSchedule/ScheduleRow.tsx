@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { format, isSameDay } from 'date-fns';
-import { Employee, Job, ScheduleItem, LeaveRequest, JobGroup } from '../../types';
+import { Employee, Job, ScheduleItem, LeaveRequest } from '../../types';
 import ScheduleCell from './ScheduleCell';
 
 interface ScheduleRowProps {
@@ -13,7 +13,7 @@ interface ScheduleRowProps {
     selectedCell: { empId: string, day: Date, shift: string } | null;
     onCellClick: (day: Date, shift: string, empId: string) => void;
     onCellSelect: (day: Date, shift: string, empId: string) => void;
-    getJobStyle: (group: JobGroup | null | undefined) => string;
+    getJobStyle: (group: string | null | undefined) => string;
     // Optimized accessors passed down
     getCellData: (dateKey: string, shift: string, employeeId: string) => ScheduleItem[];
     getLeaveData: (dateKey: string, shift: string, employeeId: string) => LeaveRequest | undefined;

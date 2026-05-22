@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { scheduleService } from '../services/firestoreService';
 import { ScheduleItem } from '../types';
 import toast from 'react-hot-toast';
-import { format, subMonths, addWeeks, startOfMonth } from 'date-fns';
+import { format, subMonths, addWeeks, startOfMonth, addDays, subDays } from 'date-fns';
 
 export const SCHEDULE_KEYS = {
     all: ['schedule'] as const,
@@ -24,8 +24,8 @@ export const useSchedulesQuery = (
 
             if (!finalStart || !finalEnd) {
                 const now = new Date();
-                finalStart = finalStart || format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');
-                finalEnd = finalEnd || format(addWeeks(now, 3), 'yyyy-MM-dd');
+                finalStart = finalStart || format(subDays(startOfMonth(subMonths(now, 1)), 10), 'yyyy-MM-dd');
+                finalEnd = finalEnd || format(addDays(addWeeks(now, 3), 10), 'yyyy-MM-dd');
             }
 
             return scheduleService.loadWithDateRange(finalStart, finalEnd);

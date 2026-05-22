@@ -1,5 +1,6 @@
 import React from 'react';
-import { Employee, EmployeeRank, JobGroup, Role, Status, TimeFrame } from '../../types';
+import { Employee, EmployeeRank, Role, Status, TimeFrame } from '../../types';
+import { useData } from '../../context/DataContext';
 import { AlertCircle, Upload } from 'lucide-react';
 
 interface EmployeeModalsProps {
@@ -36,6 +37,8 @@ const EmployeeModals: React.FC<EmployeeModalsProps> = ({
     onDownloadTemplate,
     onCloseImport,
 }) => {
+    const { jobGroups } = useData();
+
     return (
         <>
             {/* Delete Confirmation Modal */}
@@ -197,19 +200,19 @@ const EmployeeModals: React.FC<EmployeeModalsProps> = ({
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Nhóm công việc</label>
                                 <div className="flex flex-wrap gap-2">
-                                    {Object.values(JobGroup).map(group => (
-                                        <label key={group} className="inline-flex items-center bg-gray-100 px-3 py-1 rounded cursor-pointer hover:bg-gray-200">
+                                    {jobGroups.filter(g => g.isActive).sort((a, b) => a.order - b.order).map(group => (
+                                        <label key={group.id} className="inline-flex items-center bg-gray-100 px-3 py-1 rounded cursor-pointer hover:bg-gray-200">
                                             <input
                                                 type="checkbox"
                                                 className="mr-2"
-                                                checked={editForm.jobGroups?.includes(group)}
+                                                checked={editForm.jobGroups?.includes(group.name)}
                                                 onChange={e => {
                                                     const current = editForm.jobGroups || [];
-                                                    const next = e.target.checked ? [...current, group] : current.filter(g => g !== group);
+                                                    const next = e.target.checked ? [...current, group.name] : current.filter(g => g !== group.name);
                                                     setEditForm({ ...editForm, jobGroups: next });
                                                 }}
                                             />
-                                            {group}
+                                            {group.name}
                                         </label>
                                     ))}
                                 </div>

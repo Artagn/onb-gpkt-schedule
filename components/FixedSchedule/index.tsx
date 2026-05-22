@@ -31,6 +31,7 @@ const FixedSchedule: React.FC<Props> = ({
 }) => {
     const {
         // State
+        jobGroups,
         selectedDate, setSelectedDate,
         isConfigMode, setIsConfigMode,
         showAssignModal, setShowAssignModal,
@@ -131,10 +132,12 @@ const FixedSchedule: React.FC<Props> = ({
                         <button onClick={() => setSelectedDate(addDays(selectedDate, 7))} className="p-1 hover:bg-gray-100 rounded"><ChevronRight className="w-4 h-4" /></button>
                     </div>
                     <div className="hidden xl:flex gap-3 text-[10px] ml-4 border-l pl-4">
-                        <div className="flex items-center"><span className="w-2.5 h-2.5 bg-blue-100 border border-blue-200 rounded mr-1"></span>Đào tạo</div>
-                        <div className="flex items-center"><span className="w-2.5 h-2.5 bg-purple-100 border border-purple-200 rounded mr-1"></span>Livechat</div>
-                        <div className="flex items-center"><span className="w-2.5 h-2.5 bg-emerald-100 border border-emerald-200 rounded mr-1"></span>Hàng ngày</div>
-                        <div className="flex items-center"><span className="w-2.5 h-2.5 bg-orange-100 border border-orange-200 rounded mr-1"></span>Khác</div>
+                        {jobGroups.filter(g => g.isActive).sort((a, b) => a.order - b.order).map(group => (
+                            <div key={group.id} className="flex items-center">
+                                <span className={`w-2.5 h-2.5 rounded mr-1 ${group.colorClass} border border-opacity-30 border-gray-400`}></span>
+                                {group.name}
+                            </div>
+                        ))}
                     </div>
                 </div>
 

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { Employee, Job, ScheduleItem, JobGroup } from '../types';
+import { Employee, Job, ScheduleItem } from '../types';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 
 export const exportWeeklySchedule = (

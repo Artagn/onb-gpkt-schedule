@@ -2,7 +2,7 @@
 import React from 'react';
 import { Award, Users, ClipboardCheck, CheckCircle2, X, Video } from 'lucide-react';
 import { format } from 'date-fns';
-import { ScheduleItem, Job, JobGroup, SubJob } from '../../types';
+import { ScheduleItem, Job, SubJob } from '../../types';
 
 export const TaskModal = ({ selectedTask, setSelectedTask, actionNote, setActionNote, trainingMetrics, setTrainingMetrics, handleTaskAction, jobs }: any) => {
     if (!selectedTask) return null;
@@ -28,7 +28,7 @@ export const TaskModal = ({ selectedTask, setSelectedTask, actionNote, setAction
                 </div>
 
                 {/* TRAINING METRICS INPUTS */}
-                {job?.group === JobGroup.Training && (
+                {job?.group === 'Đào tạo' && (
                     <div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <h4 className="font-bold text-blue-800 text-sm mb-2 flex items-center">
                             <Award className="w-4 h-4 mr-1" /> Kết quả Đào tạo

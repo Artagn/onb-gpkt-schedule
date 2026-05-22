@@ -8,7 +8,7 @@ import { Check, X, Eye, Loader2, Filter, Users, CheckCircle, XCircle, Clock, Fil
 import { useData } from '../../context/DataContext';
 import { useEvaluationsQuery, useOpenPeriodQuery } from '../../hooks/useEvaluationQuery';
 import { evaluationsService } from '../../services/evaluationService';
-import { EmployeeEvaluation, EvaluationGroup, JobGroup, Role } from '../../types';
+import { EmployeeEvaluation, EvaluationGroup, Role } from '../../types';
 import { auth } from '../../services/firebaseConfig';
 import { isDTGroup, isKSGroup } from '../../utils/permissions';
 import { useQueryClient } from '@tanstack/react-query';

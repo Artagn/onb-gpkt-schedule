@@ -5,7 +5,7 @@ import { vi } from 'date-fns/locale';
 import { AlertOctagon, AlertTriangle, CheckSquare, Plus, Settings, Briefcase } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { scheduleService, leavesService } from '../../services/firestoreService';
-import { ScheduleItem, LeaveRequest, Job, JobGroup, Employee, SchedulePattern } from '../../types';
+import { ScheduleItem, LeaveRequest, Job,  Employee, SchedulePattern } from '../../types';
 import { useQueryClient } from '@tanstack/react-query';
 import { SCHEDULE_KEYS } from '../../hooks/useSchedulesQuery';
 import { LEAVE_KEYS } from '../../hooks/useLeavesQuery';
@@ -74,7 +74,7 @@ interface AssignModalProps {
     jobs: Job[];
     patterns: SchedulePattern[];
     canEdit: boolean;
-    getJobStyle: (g: JobGroup | null | undefined) => string;
+    getJobStyle: (g: string | null | undefined) => string;
     isWorkShiftActive: (d: Date, s: string) => { isActive: boolean, reason?: string };
     createRestItem: (id: string, d: Date) => ScheduleItem;
 }
@@ -413,7 +413,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                             {assignedToMe.length === 0 && <p className="text-xs text-gray-400 italic">Chưa được phân công công việc nào.</p>}
                             {assignedToMe.map(item => {
                                 const j = item.jobId === 'JOB_NGHI_BU' ? { name: 'Nghỉ bù', group: null } : jobs.find(job => job.id === item.jobId);
-                                const styleClass = getJobStyle(j?.group as JobGroup);
+                                const styleClass = getJobStyle(j?.group as string);
                                 const isCompleted = item.status === 'Completed';
                                 return (
                                     <div key={item.id} className={`flex flex-col gap-1 border p-2 rounded text-sm ${styleClass}`}>

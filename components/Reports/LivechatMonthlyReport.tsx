@@ -8,7 +8,7 @@ import React, { useMemo } from 'react';
 import { MessageCircle, Download, Loader2 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useEvaluationPeriodsQuery, useEvaluationsQuery } from '../../hooks/useEvaluationQuery';
-import { JobGroup } from '../../types';
+
 import { isDTGroup } from '../../utils/permissions';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval, format } from 'date-fns';
 import { getDifficultyConfig, calcDifficultyConverted } from '../../utils/evaluationHelpers';
@@ -70,7 +70,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
 
     // Livechat jobs
     const livechatJobs = useMemo(() =>
-        jobs.filter(j => j.group === JobGroup.Livechat && j.isActive),
+        jobs.filter(j => j.group === 'Livechat' && j.isActive),
         [jobs]
     );
 
@@ -124,7 +124,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
                         myScheduleItems.forEach(item => {
                             if (item.jobId !== job.id) return;
                             const itemJob = jobs.find(j => j.id === item.jobId);
-                            if (itemJob?.group !== JobGroup.Livechat) return;
+                            if (itemJob?.group !== 'Livechat') return;
 
                             jobStats.total++;
                             if (item.status === 'Completed' || item.status === 'Approved') {
@@ -151,7 +151,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
                         myScheduleItems.forEach(item => {
                             if (item.jobId !== job.id) return;
                             const itemJob = jobs.find(j => j.id === item.jobId);
-                            if (itemJob?.group !== JobGroup.Livechat) return;
+                            if (itemJob?.group !== 'Livechat') return;
 
                             jobStats.total++;
                             if (item.status === 'Completed' || item.status === 'Approved') {

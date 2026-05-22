@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 3.19.3 | **Last Updated:** 2026-04-24
+> **Version:** 3.22.0 | **Last Updated:** 2026-05-11
 
 ---
 
@@ -110,9 +110,16 @@ App.tsx                    # Root + Provider + Router
 |       ├── MetricManager.tsx   # Admin metrics
 |       ├── PeriodManager.tsx   # Admin periods
 |       └── EvaluationErrorBoundary.tsx
-├── services/              # Service Layer (11 files)
+|   └── CustomerCare/      # [MODULE] 5 components:
+|       ├── index.tsx      # Tab navigation + routing
+|       ├── DailyReportForm.tsx # Input form
+|       ├── ReportDashboard.tsx # Statistics & Charts
+|       ├── CampaignManager.tsx # Admin campaigns
+|       └── useCustomerCare.ts  # Logic hook
+├── services/              # Service Layer (12 files)
 |   ├── firestoreService.ts # [CORE] CRUD operations + real-time subscriptions
 |   ├── schedulerEngine.ts  # [CORE] Auto-Allocation (535 lines)
+|   ├── careService.ts      # Customer Care CRUD
 |   ├── evaluationService.ts # Evaluation CRUD (15KB)
 |   ├── evaluationExportService.ts # Evaluation Excel export (9KB)
 |   ├── swapService.ts      # Shift swap logic
@@ -122,7 +129,7 @@ App.tsx                    # Root + Provider + Router
 |   ├── appConfigService.ts # App config service
 |   ├── mockData.ts         # Development seed data (50KB)
 |   └── firebaseConfig.ts   # Firebase init + Persistence
-├── hooks/                 # Custom Hooks (19 files)
+├── hooks/                 # Custom Hooks (20 files)
 |   ├── useRealtimeQuery.ts # [CORE] onSnapshot → TanStack Query (v3.16.0)
 |   ├── useSchedulesQuery.ts # Date-range filtered schedules (polling)
 |   ├── useEmployeesQuery.ts # Employee data
@@ -131,6 +138,7 @@ App.tsx                    # Root + Provider + Router
 |   ├── useDateFilter.ts     # Date presets
 |   ├── useLeaveBalanceQuery.ts # Single employee balance
 |   ├── useLeaveBalanceHistory.ts # Balance history
+|   ├── useCareQuery.ts     # Customer Care queries
 |   └── ...                  # 5 more hooks (useCountUp, usePermissions, useSmoothNavigate, etc.)
 └── utils/                 # Utilities
     ├── evaluationHelpers.ts  # Shared difficulty config helpers
@@ -144,13 +152,22 @@ App.tsx                    # Root + Provider + Router
 - **Caching:** In-memory with tailored `staleTime` defaults:
   - **Schedule/Leaves/Allocations (DataContext):** Real-time via onSnapshot + `useQuery` (staleTime: Infinity)
   - **Schedule/Leaves/Allocations (On-demand/Reports):** Polling with getDocs (custom date ranges)
-  - **Jobs/Employees/SubJobs:** Infinity (master data, load once per session)
+  - **Jobs/Employees/SubJobs/JobGroups:** Infinity (master data, load once per session)
   - **Evaluations:** 15-30 minutes (v3.13.0 optimization)
   - **Config (WorkPeriods, Holidays, Patterns):** Infinity (v3.9.28 - load once per session)
 - **Local Persistence:** `initializeFirestore` + `persistentLocalCache` giúp truy xuất từ IndexedDB trước khi delta (v3.14.0, API updated v3.16.1).
-- **Date Range:** Schedule/Leaves/Allocations filtered to Start of Previous Month to Current Date + 3 Weeks
+- **Date Range:** Schedule/Leaves/Allocations filtered to Start of Previous Month - 10 Days to Current Date + 3 Weeks + 10 Days (v3.19.4)
 - **Mutations:** Direct `scheduleService.save()` + `queryClient.setQueryData()` (optimistic) → onSnapshot auto-confirms
-- **Context:** `DataContext` exposes real-time data to all components
+- **Context:** `DataContext` exposes real-time data to all components (including dynamic `jobGroups: JobGroupDef[]`)
+
+> [!IMPORTANT]
+> **JobGroup Enum Removed (v3.19.5):** `JobGroup` enum đã bị xóa hoàn toàn khỏi `types.ts`. Tất cả references sử dụng string literal (`'Đào tạo'`, `'Livechat'`) hoặc dynamic `jobGroups` từ `DataContext`. KHÔNG import `JobGroup` từ `types.ts` — nó không tồn tại. Sử dụng `JobGroupDef` interface cho type definition.
+
+> [!WARNING]
+> **Job.classification Field (v3.19.6):** Trường `classification?: 'Nghiệp vụ' | 'Lĩnh vực' | 'Nội bộ' | 'Trực tiếp'` đã được khôi phục vào cả `Job` interface (`types.ts`) và `JobSchema` (`schemas.ts`). Trường này chỉ áp dụng cho jobs thuộc nhóm 'Đào tạo' và là căn cứ tính điểm đào tạo trong Evaluation module. Thiếu field này sẽ khiến điểm đào tạo về 0.
+
+> [!IMPORTANT]
+> **jobGroups Firestore Rules (v3.19.6):** Collection `jobGroups` đã được thêm vào `firestore.rules`. `useJobGroupsQuery` có default fallback (Đào tạo, Livechat, Chia hàng ngày, Chăm sóc KH, Khác) nếu collection chưa tồn tại trong Firestore.
 
 ### 2.3 Performance Optimization
 - **v3.17.1 Instant UI Updates:**
@@ -172,7 +189,7 @@ App.tsx                    # Root + Provider + Router
 - **v3.13.0 Optimized Window:**
     - Thu hẹp thành **Last Month to +3 Weeks:** Tháng trước + 3 tuần tương lai
 - **Code Splitting:** Major routes lazy loaded via `React.lazy` + `Suspense`
-- **Date Range Loading:** Schedules query filtered to Start of Last Month to Current Date + 3 Weeks (v3.13.0)
+- **Date Range Loading:** Schedules query filtered to Start of Last Month - 10 Days to Current Date + 3 Weeks + 10 Days (v3.13.0 + v3.19.4 extension)
 - **PWA Caching:** Service Worker with 3MB cache limit
 - **Visibility API:** Dashboard timer pauses when tab hidden
 - **Zod Validation:** Runtime + compile-time type safety
@@ -344,6 +361,43 @@ const { data: existingEval } = useEmployeeEvaluationQuery(
 - **Classification:** Based on `Job.classification` field
 - **Date Selector:** Single month / Multi-month / Custom range
 - **Export:** Excel (.xlsx)
+
+### 3.9 Public Schedule Share (v3.20.0)
+
+**Mục đích:** Cung cấp đường dẫn chia sẻ cố định cho Khách hàng xem lịch đào tạo mà không cần đăng nhập, đồng thời bảo mật dữ liệu nội bộ.
+
+**Kiến trúc Backend (Cloud Function `getPublicTrainingSchedule`):**
+- **Bảo mật:** Dùng Service Account lấy data `jobs` (chỉ nhóm Đào tạo), `subJobs` (đang active), `holidays`, `workPeriods`. Frontend nhận dữ liệu sạch, không thể đọc collection nội bộ bằng Firestore SDK (do bị chặn bởi Security Rules).
+- **Tối ưu chi phí:** Cấu hình `res.set('Cache-Control', 'public, max-age=600, s-maxage=600');`. Firestore reads cho toàn bộ traffic Khách hàng được gói gọn trong 1 lần truy vấn mỗi 10 phút (~150 reads). Chi phí vận hành = $0.
+
+**Kiến trúc Frontend (`components/PublicShare/`):**
+- Bỏ qua Auth/Role Check tại `App.tsx` bằng đường dẫn `/shared/training`.
+- `PublicScheduleContainer`: Fetches data 1 lần từ Cloud Function, quản lý selectedDate, bộ lọc Sản phẩm (AMIS Kế toán / MISA SME).
+- `PublicDailySchedule`: Hiển thị ma trận lịch theo ngày, phân nhóm Lĩnh vực/Nghiệp vụ. Tự check `holidayName` để render banner Nghỉ lễ thay vì bảng rỗng.
+- `PublicWeeklySchedule`: Hiển thị lịch từ T2 -> CN. Nếu một cột trúng vào Nghỉ lễ, hiển thị chữ "Nghỉ lễ" với nền vàng nhạt, các cột khác vẫn hoạt động bình thường. Loại trừ hoàn toàn dữ liệu Livechat (theo yêu cầu KH).
+### 3.10 Báo cáo Chăm sóc KH (Customer Care) (v3.21.0 & v3.22.0)
+**Mục đích:** Cung cấp module chuyên biệt cho nhóm Kiểm soát (ONB_KS) để báo cáo công việc chăm sóc khách hàng hàng ngày và xem thống kê tổng hợp.
+
+**Đặc điểm kỹ thuật:**
+- **Data Model:**
+    - `care_campaigns`: Lưu danh mục chiến dịch (id, name, code, isActive...).
+    - `care_metrics`: Lưu danh mục chỉ tiêu (id, name, unit, isActive...). 4 chỉ tiêu mặc định: `call_count`, `duration`, `reached`, `ultraview`.
+    - `care_reports`: Lưu báo cáo ngày. Khóa chính `{employeeId}_{date}`. Chứa `dailyMetrics` (map từ metric ID sang giá trị) và `campaignDetails` (map từ campaign ID sang object chứa `dailyCompleted` và `weeklyTarget`).
+- **ISO Week ID:** Sử dụng format `YYYY-Wxx` làm khóa phụ để query nhanh dữ liệu theo tuần mà không cần tính toán range date phức tạp trên Firestore.
+- **Tính năng Thống kê (v3.22.1 - v3.22.3):**
+    - Bổ sung dòng **Σ Tổng cộng** cho bảng chi tiết chiến dịch (trong cả View Ngày và Form Nhập liệu).
+    - Bổ sung cột **Tổng cộng (% HT)** cho bảng thống kê theo nhân viên.
+    - **Dashboard Upgrades (v3.22.4):**
+        - Sửa lỗi lọc NV ngưng hoạt động khỏi bảng thống kê và tính tổng.
+        - Cải thiện công thức tổng hợp mục tiêu tuần (`weeklyTarget`) theo từng nhân viên (group by employee, sum max targets), sửa lỗi sai mẫu số.
+        - Thêm UX bảng phân nhóm màu rõ ràng (Chỉ tiêu / Chiến dịch / Tổng hợp), sticky column hiển thị tên.
+    - **Dashboard Upgrades (v3.22.3):**
+        - Summary Cards hiển thị ở tất cả view modes (bao gồm Ngày).
+        - Trend indicators (↑↓ %) so sánh với kỳ trước (hôm qua, tuần trước, tháng trước).
+        - Employee Breakdown Table khả dụng ở cả View Ngày (chi tiết đóng góp theo ngày).
+        - Ranking nhân viên: Tự động sort theo sản lượng và hiển thị Rank Badge (#1 Trophy, #2-3 Medal).
+- **Tương thích ngược:** Hỗ trợ fallback tự động đọc dữ liệu cũ (từ các trường fix cứng như `callCount`) sang cấu trúc map mới. Logic fallback được tập trung vào helper `getMetricValue(dailyMetrics, metricId)` trong `useCustomerCare.ts` — tất cả components PHẢI dùng helper này thay vì tự viết inline fallback.
+- **Phân quyền:** Cấp full quyền cho nhóm `ONB_KS` trong riêng module này để tự quản lý chiến dịch, chỉ tiêu và xem báo cáo toàn phòng.
 
 ---
 

@@ -6,7 +6,7 @@
 import React, { useMemo } from 'react';
 import { GraduationCap, Download, Loader2 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
-import { JobGroup } from '../../types';
+
 import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -50,7 +50,7 @@ export const TrainingMonthlyReport: React.FC<TrainingMonthlyReportProps> = ({ hi
     // Training jobs map
     const trainingJobs = useMemo(() => {
         const map = new Map<string, { name: string; classification: string | null }>();
-        jobs.filter(j => j.group === JobGroup.Training && j.isActive)
+        jobs.filter(j => j.group === 'Đào tạo' && j.isActive)
             .forEach(j => map.set(j.id, { name: j.name, classification: j.classification || null }));
         return map;
     }, [jobs]);

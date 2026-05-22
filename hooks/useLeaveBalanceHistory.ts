@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, subMonths, addWeeks, startOfMonth } from 'date-fns';
+import { format, subMonths, addWeeks, startOfMonth, addDays, subDays } from 'date-fns';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { ScheduleItem, WorkPeriod, Holiday } from '../types';
@@ -101,8 +101,8 @@ export const useLeaveBalanceHistory = (employeeId: string) => {
 
             // Range: Start of Last Month to +3 Weeks from today
             const now = new Date();
-            const startDate = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd');
-            const endDate = format(addWeeks(now, 3), 'yyyy-MM-dd');
+            const startDate = format(subDays(startOfMonth(subMonths(now, 1)), 10), 'yyyy-MM-dd');
+            const endDate = format(addDays(addWeeks(now, 3), 10), 'yyyy-MM-dd');
 
             // Get all completed schedule items for this employee
             const scheduleRef = collection(db, 'schedule');

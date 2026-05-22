@@ -14,7 +14,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Save, Loader2 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 import { useEvaluationsQuery, useEvaluationMutation, useEvaluationMetricsQuery } from '../../hooks/useEvaluationQuery';
-import { EvaluationPeriod, EmployeeEvaluation, Role, JobGroup, EvaluationMetric } from '../../types';
+import { EvaluationPeriod, EmployeeEvaluation, Role, EvaluationMetric } from '../../types';
 import { auth } from '../../services/firebaseConfig';
 import { isDTGroup } from '../../utils/permissions';
 import toast from 'react-hot-toast';
@@ -134,7 +134,7 @@ const WorkPointsTable: React.FC<WorkPointsTableProps> = ({ openPeriod, employeeI
         let totalPoints = 0;
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group === JobGroup.Training) {
+            if (job?.group === 'Đào tạo') {
                 const coefficient = item.coefficient || 1;
                 totalPoints += (job.standardPoint || 0) * coefficient;
             }
@@ -158,7 +158,7 @@ const WorkPointsTable: React.FC<WorkPointsTableProps> = ({ openPeriod, employeeI
 
         myScheduleItems.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
-            if (job?.group !== JobGroup.Livechat) return;
+            if (job?.group !== 'Livechat') return;
 
             if (!jobStats[job.id]) {
                 jobStats[job.id] = { total: 0, completed: 0, offHours: 0, points: 0 };
@@ -176,7 +176,7 @@ const WorkPointsTable: React.FC<WorkPointsTableProps> = ({ openPeriod, employeeI
             }
         });
 
-        const livechatJobs = jobs.filter(j => j.group === JobGroup.Livechat && j.isActive);
+        const livechatJobs = jobs.filter(j => j.group === 'Livechat' && j.isActive);
         let totalFixedPoints = 0;
         let totalRequests = 0;
 
