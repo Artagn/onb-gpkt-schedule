@@ -33,6 +33,12 @@ service cloud.firestore {
         : null;
     }
     
+    // Helper function: Check if evaluation period is not closed
+    function isPeriodOpen(periodId) {
+      return exists(/databases/$(database)/documents/evaluation_periods/$(periodId)) &&
+             get(/databases/$(database)/documents/evaluation_periods/$(periodId)).data.status != 'closed';
+    }
+    
     // Helper function: Check if user is Coordinator/Admin, with Super Admin short-circuit
     function isCoordinatorOrAdmin() {
       return isSuperAdmin() || (
@@ -193,7 +199,7 @@ service cloud.firestore {
                     request.resource.data.employeeId == getUserEmployeeId() &&
                     request.resource.data.status in ['pending', 'submitted'] &&
                     evaluationId == request.resource.data.periodId + '_' + getUserEmployeeId() &&
-                    get(/databases/$(database)/documents/evaluation_periods/$(request.resource.data.periodId)).data.status != 'closed';
+                    isPeriodOpen(request.resource.data.periodId);
       allow update: if isAuthenticated() && 
                     resource.data.employeeId == getUserEmployeeId() &&
                     request.resource.data.employeeId == getUserEmployeeId() &&
@@ -204,7 +210,7 @@ service cloud.firestore {
                     request.resource.data.status != 'approved' &&
                     // Guard: Staff cannot modify locked evaluations
                     (!('lockedSnapshot' in resource.data) || resource.data.lockedSnapshot == null) &&
-                    get(/databases/$(database)/documents/evaluation_periods/$(resource.data.periodId)).data.status != 'closed' &&
+                    isPeriodOpen(resource.data.periodId) &&
                     // Guard: Reviewer fields cannot be changed by staff
                     request.resource.data.get('approvedBy', null) == resource.data.get('approvedBy', null) &&
                     request.resource.data.get('approvedAt', null) == resource.data.get('approvedAt', null);
