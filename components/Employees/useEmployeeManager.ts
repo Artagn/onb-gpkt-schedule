@@ -189,13 +189,14 @@ export const useEmployeeManager = (): UseEmployeeManagerReturn => {
             const startRow = data[0].some(cell => String(cell).toLowerCase().includes('họ') || String(cell).toLowerCase().includes('tên')) ? 1 : 0;
 
             const newEmployees: Employee[] = [];
+            const allErrors: string[] = [];
 
             for (let i = startRow; i < data.length; i++) {
                 const row = data[i];
                 if (row.length >= 2 && row[1]) {
                     const stt = parseInt(row[0]) || (employees.length + i + 1);
                     const fullName = String(row[1]).trim();
-                    const email = String(row[2] || '').trim();
+                    const email = String(row[2] || '').trim().toLowerCase();
                     const rankStr = String(row[3] || '').trim();
                     const roleStr = String(row[4] || '').trim();
                     const statusStr = String(row[5] || '').trim();
@@ -215,17 +216,43 @@ export const useEmployeeManager = (): UseEmployeeManagerReturn => {
                         .map(s => s.trim())
                         .filter(s => Object.values(TimeFrame).includes(s as TimeFrame)) as TimeFrame[];
 
-                    newEmployees.push({
+                    const empData: Employee = {
                         id: `emp_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 3)}`,
-                        stt, fullName, email, rank, role, status, jobGroups, timeFrames,
-                        kpiStandard: kpi, weeklyScore: 0, monthlyScore: 0
-                    });
+                        stt,
+                        fullName,
+                        email,
+                        rank,
+                        role,
+                        status,
+                        jobGroups,
+                        timeFrames,
+                        kpiStandard: kpi,
+                        weeklyScore: 0,
+                        monthlyScore: 0
+                    };
+
+                    const rowErrors = validateEmployee(empData);
+                    if (rowErrors.length > 0) {
+                        allErrors.push(`Dòng ${i + 1} (${fullName}): ${rowErrors.join(', ')}`);
+                    } else {
+                        newEmployees.push(empData);
+                    }
                 }
+            }
+
+            if (allErrors.length > 0) {
+                toast.error(
+                    `Lỗi import Excel:\n` +
+                    allErrors.slice(0, 3).join('\n') +
+                    (allErrors.length > 3 ? `\n... và ${allErrors.length - 3} lỗi khác.` : ''),
+                    { duration: 6000 }
+                );
+                return;
             }
 
             if (newEmployees.length > 0) {
                 toast.promise(
-                    Promise.all(newEmployees.map(emp => employeesService.save(emp))).then(() => {
+                    employeesService.saveAll(newEmployees).then(() => {
                         queryClient.invalidateQueries({ queryKey: EMPLOYEE_KEYS.all });
                     }),
                     {

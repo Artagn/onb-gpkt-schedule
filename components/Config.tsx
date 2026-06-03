@@ -1,7 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { Save, Upload, RotateCcw, AlertTriangle, Download, Database } from 'lucide-react';
-import { initialEmployees, initialJobs, initialPatterns, initialSchedule, initialWorkPeriods, initialHolidays, initialSubJobs } from '../services/mockData';
 import { appConfigService } from '../services/appConfigService';
 import { AppConfig } from '../types';
 import toast from 'react-hot-toast';

@@ -2,6 +2,7 @@ import React from 'react';
 import { Employee, EmployeeRank, Role, Status } from '../../types';
 import { Edit2, Trash2, Filter, Search } from 'lucide-react';
 import { FilterState } from './useEmployeeManager';
+import EmptyState from '../common/EmptyState';
 
 interface EmployeeTableProps {
     employees: Employee[];
@@ -92,9 +93,7 @@ const EmployeeTable: React.FC<EmployeeTableProps> = ({
                     <tbody className="bg-white divide-y divide-gray-200">
                         {employees.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="text-center py-8 text-gray-500 italic">
-                                    Không tìm thấy nhân viên nào phù hợp.
-                                </td>
+                                <EmptyState colSpan={9} size="sm" title="Không tìm thấy nhân viên nào phù hợp." />
                             </tr>
                         ) : (
                             employees.map((emp) => (

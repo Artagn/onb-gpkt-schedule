@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AuditLog } from '../../types';
 import { auditService } from '../../services/firestoreService';
-import { Clock, Search, ShieldAlert, User, Activity, Trash2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { ShieldAlert, Trash2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 
 const ACTION_NAMES: Record<string, string> = {
     // Leave Actions
@@ -115,10 +116,10 @@ const AuditLogViewer: React.FC = () => {
                     setLoading(true);
                     await auditService.clearAll();
                     setLogs([]);
-                    alert("Đã xóa toàn bộ nhật ký.");
+                    toast.success("Đã xóa toàn bộ nhật ký.");
                 } catch (error) {
                     console.error(error);
-                    alert("Lỗi khi xóa nhật ký.");
+                    toast.error("Lỗi khi xóa nhật ký.");
                 } finally {
                     setLoading(false);
                 }
@@ -132,11 +133,11 @@ const AuditLogViewer: React.FC = () => {
 
         let matchDate = true;
         if (fromDate) {
-            matchDate = matchDate && new Date(log.timestamp) >= new Date(fromDate);
+            matchDate = matchDate && new Date(log.timestamp) >= parseISO(fromDate);
         }
         if (toDate) {
             // End of day
-            const end = new Date(toDate);
+            const end = parseISO(toDate);
             end.setHours(23, 59, 59, 999);
             matchDate = matchDate && new Date(log.timestamp) <= end;
         }

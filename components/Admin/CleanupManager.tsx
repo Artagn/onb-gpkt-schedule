@@ -4,7 +4,7 @@ import { useData } from '../../context/DataContext';
 import { cleanupService } from '../../services/cleanupService';
 import { COLLECTIONS } from '../../constants';
 import { Trash2, Search, CheckSquare, Square, RefreshCw } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { SCHEDULE_KEYS } from '../../hooks/useSchedulesQuery';
 import { LEAVE_KEYS } from '../../hooks/useLeavesQuery';
@@ -14,11 +14,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import toast from 'react-hot-toast';
 
-interface Props {
-    currentUserRole: string; // Ensure only Admin
-}
-
-const CleanupManager: React.FC<Props> = ({ currentUserRole }) => {
+const CleanupManager: React.FC = () => {
     // --- STATE ---
     const queryClient = useQueryClient();
     const { employees, jobs } = useData();
@@ -391,7 +387,7 @@ const CleanupManager: React.FC<Props> = ({ currentUserRole }) => {
                                                 </button>
                                             </td>
                                             <td className="px-4 py-2 whitespace-nowrap">
-                                                {item.date ? format(new Date(item.date), 'dd/MM/yyyy') : '-'}
+                                                {item.date ? format(parseISO(item.date), 'dd/MM/yyyy') : '-'}
                                                 <div className="text-xs text-gray-500">{item.shift}</div>
                                             </td>
                                             <td className="px-4 py-2 font-medium text-blue-700">

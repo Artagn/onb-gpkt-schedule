@@ -209,7 +209,13 @@ function AppContent() {
 
                                 <Route path={ROUTES.VIEW_SCHEDULE} element={<ScheduleViewer />} />
 
-                                <Route path={ROUTES.CONFIG} element={<Config />} />
+                                <Route path={ROUTES.CONFIG} element={
+                                    (effectiveRole === Role.Admin || effectiveRole === Role.Coordinator) ? (
+                                        <Config />
+                                    ) : (
+                                        <Navigate to={ROUTES.DASHBOARD} replace />
+                                    )
+                                } />
 
                                 <Route path={ROUTES.EVALUATION} element={<Evaluation />} />
 

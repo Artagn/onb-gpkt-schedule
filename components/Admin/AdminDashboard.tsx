@@ -131,7 +131,7 @@ const AdminDashboard: React.FC<Props> = ({ currentUserRole }) => {
                     <div className="space-y-6 overflow-auto h-full">
                         <ScheduleExportTool />
                         <DataIntegrityChecker />
-                        <CleanupManager currentUserRole={currentUserRole} />
+                        <CleanupManager />
                     </div>
                 )}
             </div>

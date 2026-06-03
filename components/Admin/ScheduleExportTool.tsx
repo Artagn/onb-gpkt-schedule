@@ -3,7 +3,7 @@ import { useData } from '../../context/DataContext';
 import { useSchedulesQuery } from '../../hooks/useSchedulesQuery';
 import { exportScheduleData } from '../../services/excelExportService';
 import { Download, Filter, Calendar, Loader2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 const ScheduleExportTool: React.FC = () => {
     const { jobs, employees } = useData();
@@ -54,9 +54,8 @@ const ScheduleExportTool: React.FC = () => {
         const sorted = [...filteredSchedule];
         const shiftOrder = { 'Sáng': 1, 'Chiều': 2, 'Tối': 3 };
         return sorted.sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            if (dateA !== dateB) return dateA - dateB;
+            const comp = a.date.localeCompare(b.date);
+            if (comp !== 0) return comp;
             
             const shiftA = shiftOrder[a.shift as keyof typeof shiftOrder] || 4;
             const shiftB = shiftOrder[b.shift as keyof typeof shiftOrder] || 4;
@@ -186,7 +185,7 @@ const ScheduleExportTool: React.FC = () => {
                                     
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-2">{format(new Date(item.date), 'dd/MM/yyyy')}</td>
+                                            <td className="px-4 py-2">{format(parseISO(item.date), 'dd/MM/yyyy')}</td>
                                             <td className="px-4 py-2">
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                                     item.shift === 'Sáng' ? 'bg-amber-100 text-amber-800' :
