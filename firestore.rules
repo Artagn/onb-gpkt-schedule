@@ -191,16 +191,23 @@ service cloud.firestore {
       // Staff can create/update their own evaluations
       allow create: if isAuthenticated() && 
                     request.resource.data.employeeId == getUserEmployeeId() &&
-                    request.resource.data.status in ['pending', 'submitted'];
+                    request.resource.data.status in ['pending', 'submitted'] &&
+                    evaluationId == request.resource.data.periodId + '_' + getUserEmployeeId() &&
+                    get(/databases/$(database)/documents/evaluation_periods/$(request.resource.data.periodId)).data.status != 'closed';
       allow update: if isAuthenticated() && 
                     resource.data.employeeId == getUserEmployeeId() &&
                     request.resource.data.employeeId == getUserEmployeeId() &&
+                    evaluationId == resource.data.periodId + '_' + getUserEmployeeId() &&
                     // Guard: Staff cannot change an already approved evaluation
                     resource.data.status != 'approved' &&
                     // Guard: Staff cannot change status to approved
                     request.resource.data.status != 'approved' &&
                     // Guard: Staff cannot modify locked evaluations
-                    (!('lockedSnapshot' in resource.data) || resource.data.lockedSnapshot == null);
+                    (!('lockedSnapshot' in resource.data) || resource.data.lockedSnapshot == null) &&
+                    get(/databases/$(database)/documents/evaluation_periods/$(resource.data.periodId)).data.status != 'closed' &&
+                    // Guard: Reviewer fields cannot be changed by staff
+                    request.resource.data.get('approvedBy', null) == resource.data.get('approvedBy', null) &&
+                    request.resource.data.get('approvedAt', null) == resource.data.get('approvedAt', null);
     }
     
     // ========== JOB GROUPS (Nhóm công việc) ==========
