@@ -3,6 +3,22 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.8] - 2026-06-03 🛠️ Timezone Solidification & Excel Import Atomicity
+**Summary:** Đồng bộ hóa múi giờ an toàn cho WorkCalendarConfig và PublicDailySchedule, nâng cấp quy trình import Excel JobManager với validation toàn diện và atomic batch writes (saveAll), đồng thời loại bỏ lỗi logic `|| true` ở isActive.
+
+### Added
+- **Validation on Job Imports:** Tích hợp `validateJob` và kiểm tra trùng tên Excel cho luồng import Jobs.
+- **SubJob Parent Verification:** Nâng cấp báo lỗi dòng rõ ràng khi parent job không tồn tại thay vì bỏ qua âm thầm.
+- **validateSubJob Helper:** Thiết lập hàm `validateSubJob` chung cho cả luồng lưu đơn lẻ và import.
+- **EmptyState:** Tái sử dụng component EmptyState đồng bộ cho 3 bảng của JobManager và 2 bảng của WorkCalendarConfig.
+
+### Fixed
+- **isActive Bug:** Sửa lỗi logic `|| true` khiến mọi Job/SubJob import đều ở trạng thái hoạt động.
+- **WorkCalendarConfig Timezone:** Sửa timezone offset hiển thị lịch làm việc và ngày lễ qua `parseISO`.
+- **PublicDaily Date Picker:** Sửa timezone lùi ngày khi khách chọn ngày hiển thị lịch qua `parseISO`.
+
+---
+
 ## [4.4.7] - 2026-06-02 🧭 Dashboard & Coordination Solidification
 **Summary:** Đồng bộ hóa múi giờ an toàn toàn diện (parseISO), khắc phục vi phạm React Rules of Hooks, củng cố tính atomicity cho các tác vụ lưu và copy-paste lịch, tối ưu hiệu năng O(1) busyMap và làm sạch giao diện hiển thị phiên bản.
 
