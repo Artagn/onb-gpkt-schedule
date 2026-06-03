@@ -202,9 +202,11 @@ function AppContent() {
                                 } />
 
                                 <Route path={ROUTES.ADMIN} element={
-                                    <AdminDashboard
-                                        currentUserRole={effectiveRole}
-                                    />
+                                    (effectiveRole === Role.Admin || effectiveRole === Role.Coordinator) ? (
+                                        <AdminDashboard currentUserRole={effectiveRole} />
+                                    ) : (
+                                        <Navigate to={ROUTES.DASHBOARD} replace />
+                                    )
                                 } />
 
                                 <Route path={ROUTES.VIEW_SCHEDULE} element={<ScheduleViewer />} />
