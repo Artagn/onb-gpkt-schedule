@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-05-14  
-> **Version:** v3.22.3  
+> **Last Updated:** 2026-06-02  
+> **Version:** v4.4.7  
 > **Status:** ✅ Production
 
 ---
@@ -11,11 +11,11 @@
 
 ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nhân sự tự động và báo cáo KPI cho bộ phận ONB/GPKT (~30 nhân viên).
 
-- ✅ **Auto-Scheduling** - Phân công tự động với scoring engine 8 tiêu chí, preview mode
-- ✅ **Smart Swap** - Marketplace đổi ca, auto-swap Nghỉ bù khi đổi ca Tối
+- ✅ **Auto-Scheduling** - Phân công tự động với scoring engine 8 tiêu chí, preview mode, diff 3 chiều nguyên tử v4.0.0
+- ✅ **Smart Swap & RBAC Security** - Marketplace đổi ca qua Cloud Function giao dịch an toàn (v4.1.0) và siết chặt 100% Rules bảo mật dữ liệu
 - ✅ **Leave Balance Wallet** - Tính điểm nghỉ bù T7/CN/Lễ qua Cloud Functions
 - ✅ **Monthly Evaluation** - Đánh giá KPI theo nhóm DT/KS với workflow duyệt
-- ✅ **Public Share** - Chia sẻ lịch đào tạo công khai qua link cố định, tự động lọc ngày lễ, tối ưu CDN Cache chi phí $0
+- ✅ **Public Share** - Chia sẻ lịch đào tạo công khai qua link cố định, tự động lọc ngày lễ, tối ưu CDN Cache thực tế chi phí $0
 - ✅ **PWA Mobile** - Installable app với offline support
 
 ---
@@ -25,9 +25,9 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | Metric | Value |
 |--------|-------|
 | **Tech Stack** | React 19 + TypeScript + Vite |
-| **State Management** | TanStack Query v5 + React Context |
-| **UI Framework** | Tailwind CSS (CDN) + Lucide Icons + Inter Font |
-| **Database** | Cloud Firestore (Real-time sync) |
+| **State Management** | TanStack Query v5 + 4-Context Splitting |
+| **UI Framework** | Tailwind CSS v3 (Local build-time) + Lucide Icons + Inter Font |
+| **Database** | Cloud Firestore (Real-time sync + docChanges parsing cache) |
 | **Auth** | Firebase Authentication (Google Sign-in) |
 | **Deployment** | Firebase Hosting |
 | **Mobile** | PWA (Progressive Web App) |
@@ -40,10 +40,10 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 ## 🧠 Key Decisions & Rationale
 
-### 1. TanStack Query for Server State
-**Problem:** Prop drilling và double fetching với React Context  
-**Solution:** TanStack Query v5 với optimistic UI  
-**Why:** Caching, auto-refetch, mutation hooks giảm 60% code complexity
+### 1. TanStack Query & 4-Context Splitting
+**Problem:** Monolithic "God Context" gây re-render liên hoàn toàn bộ Layout (Sidebar, BottomNav) khi có cập nhật lịch trực real-time.  
+**Solution:** Phân rã thành 4 Context cô lập (Config, Realtime, Sync, Session) và gọi hook chuyên dụng directly.  
+**Why:** Giảm thiểu re-render rò rỉ tại Layout về con số 0 tuyệt đối khi nhận Firestore snapshots.
 
 ### 2. Modular Component Architecture
 **Problem:** Giant components (400-700 lines)  
@@ -84,6 +84,10 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-06-02 | v4.4.7 | Dashboard & Coordination Solidification | Đồng bộ hóa múi giờ an toàn toàn diện (parseISO), khắc phục vi phạm React Rules of Hooks, củng cố tính atomicity cho các tác vụ lưu và copy-paste lịch trực, tối ưu hiệu năng O(1) busyMap và nâng cấp số phiên bản đồng bộ sang v4.4.7. |
+| 2026-06-02 | v4.1.0 | Cloud Function approveSwapRequest & Secure firestore.rules RBAC Overhaul | Chuyển đổi logic duyệt Đổi lịch sang Cloud Function (transaction atomic), siết chặt 100% Rules bảo mật Firestore qua bảng tra cứu user_roles có lối thoát Super Admin, tích hợp Panel chạy migration, và chuẩn hóa date format operational. |
+| 2026-06-02 | v4.0.0 | React 19 Context Splitting & Bulk Sync Optimization | Phân tách God Context thành 4-Context cô lập hoàn toàn re-render thừa. Tối ưu hóa cầu nối dữ liệu Real-time (Zod parsedCache & docChanges). Tối ưu ghi đè Auto-Schedule (diff 3 chiều) giúp giảm >95% Firestore writes và đạt atomicity 100%. Kích hoạt thực sự Firebase Hosting CDN Edge Cache cho API công khai. |
+| 2026-05-26 | v3.22.5 | Add Document Link to Sub-Jobs | Bổ sung trường Link tài liệu vào cấu hình Hạng mục chi tiết (Sub-Jobs) và hiển thị cho nhân viên khi xem lịch cá nhân, dashboard, và chi tiết lịch làm việc. |
 | 2026-05-22 | v3.22.4 | Customer Care Stats Fixes | Sửa lỗi NV ngưng hoạt động hiển thị trong bảng. Sửa công thức mẫu số Tiến độ chiến dịch lấy tổng targets toàn phòng thay vì max. Cải thiện UX bảng Thống kê với sticky columns và color-coded groups. |
 | 2026-05-14 | v3.22.3 | Customer Care Input Form Fixes | Sửa lỗi không hiển thị đúng target tuần ở các ngày giữa tuần và sửa lỗi khó xóa số liệu trong ô nhập Lũy kế cuối ngày. |
 | 2026-05-12 | v3.22.2 | Customer Care Input Fix | Thêm dòng tổng cộng vào bảng chi tiết chiến dịch trong form nhập liệu hàng ngày. |

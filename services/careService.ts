@@ -13,8 +13,7 @@ import {
     deleteDoc,
     writeBatch,
     query,
-    where,
-    orderBy
+    where
 } from 'firebase/firestore';
 import { CareCampaign, CareReport, CareMetric } from '../types';
 import { CareCampaignSchema, CareReportSchema, CareMetricSchema } from '../schemas';
@@ -179,7 +178,8 @@ export const careReportsService = {
     // Load reports for an employee in a specific month
     loadByEmployeeAndMonth: async (employeeId: string, year: number, month: number): Promise<CareReport[]> => {
         const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-        const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         try {
             const q = query(
                 collection(db, CARE_COLLECTIONS.REPORTS),
@@ -198,7 +198,8 @@ export const careReportsService = {
     // Load reports for ALL employees in a specific month
     loadByMonth: async (year: number, month: number): Promise<CareReport[]> => {
         const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-        const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         try {
             const q = query(
                 collection(db, CARE_COLLECTIONS.REPORTS),
@@ -314,60 +315,4 @@ export const DEFAULT_CAMPAIGNS: CareCampaign[] = [
 
 // ========== UTILITY: ISO Week ==========
 
-/**
- * Get ISO week ID from a date string (YYYY-MM-DD)
- * Returns format: 'YYYY-Wxx'
- */
-export function getISOWeekId(dateStr: string): string {
-    const date = new Date(dateStr + 'T00:00:00');
-    // ISO week: Monday is first day of week
-    const thursday = new Date(date);
-    thursday.setDate(date.getDate() + (3 - ((date.getDay() + 6) % 7)));
-    const yearStart = new Date(thursday.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil((((thursday.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    return `${thursday.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
-}
-
-/**
- * Get Monday (start) of the ISO week for a given date
- */
-export function getWeekStart(dateStr: string): string {
-    const date = new Date(dateStr + 'T00:00:00');
-    const day = date.getDay();
-    const diff = day === 0 ? -6 : 1 - day; // Monday offset
-    const monday = new Date(date);
-    monday.setDate(date.getDate() + diff);
-    return monday.toISOString().split('T')[0];
-}
-
-/**
- * Get Sunday (end) of the ISO week for a given date
- */
-export function getWeekEnd(dateStr: string): string {
-    const monday = getWeekStart(dateStr);
-    const sunday = new Date(monday + 'T00:00:00');
-    sunday.setDate(sunday.getDate() + 6);
-    return sunday.toISOString().split('T')[0];
-}
-
-/**
- * Check if a date is Monday (start of ISO week)
- */
-export function isMonday(dateStr: string): boolean {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.getDay() === 1;
-}
-
-/**
- * Get all dates in the ISO week of a given date (Mon-Sun)
- */
-export function getWeekDates(dateStr: string): string[] {
-    const monday = getWeekStart(dateStr);
-    const dates: string[] = [];
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(monday + 'T00:00:00');
-        d.setDate(d.getDate() + i);
-        dates.push(d.toISOString().split('T')[0]);
-    }
-    return dates;
-}
+export { getISOWeekId, getWeekStart, getWeekEnd, isMonday, getWeekDates } from '../utils/dateHelpers';

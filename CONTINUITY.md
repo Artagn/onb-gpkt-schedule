@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 3.22.0 | **Last Updated:** 2026-05-11
+> **Version:** 4.4.7 | **Last Updated:** 2026-06-02
 
 ---
 
@@ -54,7 +54,7 @@ Hệ thống quản lý lịch làm việc, phân công nhân sự tự động 
 > **Firebase Plan:** Blaze (Pay-as-you-go) required. Auto-schedule ~1200 ops/run exceeds Spark free tier (20k writes/day).
 
 > [!WARNING]
-> **Tailwind CSS:** Dự án dùng CDN runtime (`cdn.tailwindcss.com`) trong `index.html`, KHÔNG cài local. Không được xóa dòng `<script src="https://cdn.tailwindcss.com">` — sẽ phá vỡ toàn bộ styling.
+> **Tailwind CSS:** Dự án đã được migrate thành công sang Local Build-time v3 kể từ v3.22.5 để tối ưu hóa hiệu năng PWA offline. Không thêm lại dòng script CDN runtime vào `index.html`.
 
 ### 1.3 URLs
 | Environment | URL |
@@ -158,7 +158,7 @@ App.tsx                    # Root + Provider + Router
 - **Local Persistence:** `initializeFirestore` + `persistentLocalCache` giúp truy xuất từ IndexedDB trước khi delta (v3.14.0, API updated v3.16.1).
 - **Date Range:** Schedule/Leaves/Allocations filtered to Start of Previous Month - 10 Days to Current Date + 3 Weeks + 10 Days (v3.19.4)
 - **Mutations:** Direct `scheduleService.save()` + `queryClient.setQueryData()` (optimistic) → onSnapshot auto-confirms
-- **Context:** `DataContext` exposes real-time data to all components (including dynamic `jobGroups: JobGroupDef[]`)
+- **Context (v4.0.0 Splitting):** `DataContext` đã được tách biệt thành 4 Context chuyên biệt bọc `useMemo` (`ConfigContext`, `RealtimeContext`, `SyncContext`, `SessionContext`) để cô lập re-render rò rỉ tại Layout chính (Sidebar, BottomNav) về con số 0 tuyệt đối khi nhận Firestore updates.
 
 > [!IMPORTANT]
 > **JobGroup Enum Removed (v3.19.5):** `JobGroup` enum đã bị xóa hoàn toàn khỏi `types.ts`. Tất cả references sử dụng string literal (`'Đào tạo'`, `'Livechat'`) hoặc dynamic `jobGroups` từ `DataContext`. KHÔNG import `JobGroup` từ `types.ts` — nó không tồn tại. Sử dụng `JobGroupDef` interface cho type definition.
@@ -170,6 +170,12 @@ App.tsx                    # Root + Provider + Router
 > **jobGroups Firestore Rules (v3.19.6):** Collection `jobGroups` đã được thêm vào `firestore.rules`. `useJobGroupsQuery` có default fallback (Đào tạo, Livechat, Chia hàng ngày, Chăm sóc KH, Khác) nếu collection chưa tồn tại trong Firestore.
 
 ### 2.3 Performance Optimization
+- **v4.0.0 React 19 Context Splitting & Real-time Parsing Cache:**
+    - **4-Context Splitting:** Phân rã God Context thành 4 Context cô lập (`ConfigContext`, `RealtimeContext`, `SyncContext`, `SessionContext`). Các hook chuyên dụng (`useSession()`, `useSyncStatus()`) giúp các component điều hướng Layout và trang cấu hình tĩnh không bị re-render rò rỉ khi Firestore cập nhật.
+    - **Zod Parsed Cache closure (docChanges):** Tích hợp Map `parsedCache` trong closure của subscriber `subscribeToCollectionWithDateRange` kết hợp `snapshot.docChanges()`. Chỉ validate Zod các tài liệu thực sự thay đổi trong delta push, map trả dữ liệu đầy đủ tốc độ $O(1)$ mà không tốn chi phí stringify hay re-parse.
+    - **3-Way Client-Side Diffing:** Tính toán Create, Update, và Delete (bao gồm cả Rest Items lệch biên tuần sau) trước khi Apply Auto-Schedule, giảm hơn 95% lượng Firestore writes và đảm bảo giao dịch gộp trọn vẹn trong 1 batch nguyên tử duy nhất (< 500 writes).
+    - **Sequential Chunking Fallback:** Cấu hình `saveCollection` và `deleteBatch` chạy batch tuần tự (`for-of` loop await) để đảm bảo fail-fast kiểm soát lỗi thay vì race condition của `Promise.all` song song.
+    - **Firebase Hosting Rewrite CDN Caching:** Định tuyến `/api/public-schedule` thông qua cổng Firebase Hosting CDN Edge Cache và dùng relative URL từ frontend để kích hoạt thực sự CDN Edge Cache, giảm chi phí đọc công khai về $0.
 - **v3.17.1 Instant UI Updates:**
     - `useRealtimeQuery.ts` sử dụng `useQuery` (subscribe cache) thay vì `getQueryData` (one-shot read) → re-render tức thì.
     - Optimistic updates qua `queryClient.setQueryData()` thay vì no-op `setSchedule`/`setLeaves` → UI phản hồi ngay trước khi Firestore confirm.
@@ -198,12 +204,17 @@ App.tsx                    # Root + Provider + Router
 
 ## 3. FEATURES & LOGIC
 
-### 3.1 Role-Based Access Control (RBAC)
-| Role | Access Level |
-|------|--------------|
-| **Admin** | Full Access - Config, Employees, Audit Logs |
-| **Coordinator** | Manager - Auto-schedule, Approve Leaves |
-| **Staff** | Self-Service - View schedule, My Tasks, Personal Reports |
+### 3.1 Role-Based Access Control (RBAC) & Firestore Rules (v4.1.0)
+| Role | Access Level | Firestore Rules Enforcement |
+|------|--------------|-----------------------------|
+| **Super Admin** | `khainguyendang@gmail.com` | Hardcoded bypass `isSuperAdmin()` bypasses all database lookups, providing a safety net to prevent lockouts. |
+| **Admin** | Full Access - Config, Employees, Audit Logs | Tra cứu vai trò động qua collection `/user_roles` (`getUserRole() == 'Quản trị'`). |
+| **Coordinator** | Manager - Auto-schedule, Approve Leaves | Tra cứu vai trò động qua collection `/user_roles` (`getUserRole() == 'Điều phối'`). |
+| **Staff** | Self-Service - View schedule, My Tasks | Tra cứu vai trò động (`getUserEmployeeId()`). Có quyền chỉnh sửa có giới hạn trường (`status`, `note`, `customerParticipants`, v.v.) qua helper `affectedKeys().hasOnly()`. |
+
+**Bảo mật Firestore Rules:**
+- **Null-email Token Guard:** Mọi hàm tra cứu email đều được bảo vệ bằng kiểm tra `request.auth.token.email != null` và fallback `'no-email'` để tránh engine-level crash khi token không chứa email.
+- **Bảng tra cứu `/user_roles`:** Được đồng bộ tự động từ `employees` thông qua trigger `onEmployeeWrite` (Cloud Function) và lưu trữ dưới dạng email được viết thường và cắt khoảng trắng (`email.toLowerCase().trim()`). Chỉ có Admin SDK của Cloud Functions được quyền ghi vào đây.
 
 ### 3.2 Auto-Scheduling
 - **3-Phase Engine:**
@@ -215,9 +226,12 @@ App.tsx                    # Root + Provider + Router
 - **Turbo Sync:** Parallel batching for 2x faster writes
 
 ### 3.3 Smart Shift Swap (Đổi lịch thông minh)
-- **Marketplace:** Request, Approve, Reject, Cancel workflow
-- **Smart Logic:** Evening shift swap auto-includes associated Nghỉ bù + next morning
-- **Validation:** Prevents swap if target already busy
+- **Marketplace:** Quy trình yêu cầu, phê duyệt, từ chối, và hủy ca trực khép kín.
+- **Server-Side Transaction Approval (v4.1.0):** Logic phê duyệt yêu cầu đổi ca (`approveRequest`) đã được chuyển toàn bộ lên HTTPS Callable Cloud Function `approveSwapRequest` chạy trong transaction an toàn, bảo vệ dữ liệu khỏi race condition và thực thi phân quyền an toàn qua `/user_roles`.
+- **Date Standardization:** Toàn bộ dữ liệu ngày ở frontend được ghi dưới dạng `'yyyy-MM-dd'` thuần túy (không sử dụng `.toISOString()`), giúp giải quyết triệt để lỗi so sánh ngày (Date Inconsistency) trong Smart Swap.
+- **Timezone-Safe Date Parsing (v4.4.7):** Tuyệt đối không sử dụng `new Date(dateString)` để parse chuỗi ngày chỉ có ngày `'yyyy-MM-dd'` (ví dụ: `2026-06-02`) vì trình duyệt sẽ parse thành giờ UTC midnight, gây lệch ngày khi chạy ở các múi giờ khác nhau. Bắt buộc dùng `parseISO(dateString)` từ `date-fns` để parse theo giờ địa phương.
+- **Smart Logic:** Evening shift swap auto-includes associated Nghỉ bù + next morning.
+- **Validation:** Prevents swap if target already busy.
 
 ### 3.4 Compensatory Leave System (Nghỉ bù)
 > **Hybrid Model:** Ticket-based (Ca Tối) + Balance-based (T7/CN/Lễ)
@@ -367,7 +381,7 @@ const { data: existingEval } = useEmployeeEvaluationQuery(
 **Mục đích:** Cung cấp đường dẫn chia sẻ cố định cho Khách hàng xem lịch đào tạo mà không cần đăng nhập, đồng thời bảo mật dữ liệu nội bộ.
 
 **Kiến trúc Backend (Cloud Function `getPublicTrainingSchedule`):**
-- **Bảo mật:** Dùng Service Account lấy data `jobs` (chỉ nhóm Đào tạo), `subJobs` (đang active), `holidays`, `workPeriods`. Frontend nhận dữ liệu sạch, không thể đọc collection nội bộ bằng Firestore SDK (do bị chặn bởi Security Rules).
+- **Bảo mật:** Dùng Service Account lấy data `jobs` (chỉ nhóm Đào tạo), `subJobs` (đang active), `holidays`, `workPeriods`. Frontend nhận dữ liệu sạch, không thể đọc collection nội bộ bằng Firestore SDK (do bị chặn bởi Security Rules). **Lưu ý (v3.22.5):** Trường `documentLink` của SubJob bị loại bỏ hoàn toàn trong kết quả trả về của Cloud Function này để tránh rò rỉ link tài liệu nội bộ ra ngoài khách hàng.
 - **Tối ưu chi phí:** Cấu hình `res.set('Cache-Control', 'public, max-age=600, s-maxage=600');`. Firestore reads cho toàn bộ traffic Khách hàng được gói gọn trong 1 lần truy vấn mỗi 10 phút (~150 reads). Chi phí vận hành = $0.
 
 **Kiến trúc Frontend (`components/PublicShare/`):**

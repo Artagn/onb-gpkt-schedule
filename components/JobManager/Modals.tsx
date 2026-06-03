@@ -214,10 +214,6 @@ export const SubJobEditModal: React.FC<SubJobEditModalProps> = ({
                         <input className="mt-1 block w-full border rounded p-2" value={editSubForm.product || ''} onChange={e => setEditSubForm({ ...editSubForm, product: e.target.value })} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Link Meet</label>
-                        <input className="mt-1 block w-full border rounded p-2" value={editSubForm.link || ''} onChange={e => setEditSubForm({ ...editSubForm, link: e.target.value })} />
-                    </div>
-                    <div>
                         <label className="block text-sm font-medium text-gray-700">Thứ</label>
                         <select className="mt-1 block w-full border rounded p-2" value={editSubForm.day || 'Thứ 2'} onChange={e => setEditSubForm({ ...editSubForm, day: e.target.value })}>
                             {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'].map(d => <option key={d} value={d}>{d}</option>)}
@@ -232,6 +228,10 @@ export const SubJobEditModal: React.FC<SubJobEditModalProps> = ({
                         </select>
                     </div>
                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Thời lượng (phút)</label>
+                        <input type="number" className="mt-1 block w-full border rounded p-2" value={editSubForm.duration || 0} onChange={e => setEditSubForm({ ...editSubForm, duration: parseInt(e.target.value) })} />
+                    </div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">Bắt đầu</label>
                         <input type="time" className="mt-1 block w-full border rounded p-2" value={editSubForm.startTime || ''} onChange={e => setEditSubForm({ ...editSubForm, startTime: e.target.value })} />
                     </div>
@@ -239,11 +239,15 @@ export const SubJobEditModal: React.FC<SubJobEditModalProps> = ({
                         <label className="block text-sm font-medium text-gray-700">Kết thúc</label>
                         <input type="time" className="mt-1 block w-full border rounded p-2" value={editSubForm.endTime || ''} onChange={e => setEditSubForm({ ...editSubForm, endTime: e.target.value })} />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Thời lượng (phút)</label>
-                        <input type="number" className="mt-1 block w-full border rounded p-2" value={editSubForm.duration || 0} onChange={e => setEditSubForm({ ...editSubForm, duration: parseInt(e.target.value) })} />
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700">Link Meet</label>
+                        <input className="mt-1 block w-full border rounded p-2" value={editSubForm.link || ''} onChange={e => setEditSubForm({ ...editSubForm, link: e.target.value })} />
                     </div>
-                    <div className="flex items-center mt-6">
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700">Link Tài liệu</label>
+                        <input className="mt-1 block w-full border rounded p-2" value={editSubForm.documentLink || ''} onChange={e => setEditSubForm({ ...editSubForm, documentLink: e.target.value })} placeholder="VD: https://docs.google.com/..." />
+                    </div>
+                    <div className="flex items-center mt-6 col-span-2">
                         <label className="flex items-center">
                             <input type="checkbox" className="w-4 h-4" checked={editSubForm.isActive} onChange={e => setEditSubForm({ ...editSubForm, isActive: e.target.checked })} />
                             <span className="ml-2 text-sm font-medium text-gray-700">Đang hoạt động</span>

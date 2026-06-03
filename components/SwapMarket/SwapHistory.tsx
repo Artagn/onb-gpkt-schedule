@@ -1,12 +1,13 @@
 import React from 'react';
-import { format } from 'date-fns';
-import { SwapRequest } from '../../types';
+import { format, parseISO } from 'date-fns';
+import { SwapRequest, Employee, Job } from '../../types';
 import { ArrowLeftRight, History } from 'lucide-react';
+import EmptyState from '../common/EmptyState';
 
 interface Props {
     requests: SwapRequest[];
-    employees: any[];
-    jobs: any[];
+    employees: Employee[];
+    jobs: Job[];
     currentUserId: string;
 }
 
@@ -16,10 +17,11 @@ const SwapHistory: React.FC<Props> = ({ requests, employees, jobs, currentUserId
 
     if (requests.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 text-gray-400">
-                <History className="w-12 h-12 mb-2 opacity-20" />
-                <p className="text-sm">Chưa có lịch sử đổi lịch nào.</p>
-            </div>
+            <EmptyState
+                icon={History}
+                title="Chưa có lịch sử đổi lịch nào"
+                description="Các yêu cầu đổi ca đã hoàn thành, bị từ chối hoặc đã hủy sẽ hiển thị ở đây."
+            />
         );
     }
 
@@ -79,7 +81,7 @@ const SwapHistory: React.FC<Props> = ({ requests, employees, jobs, currentUserId
                             <div className="text-center">
                                 <div className="text-[10px] text-gray-500 uppercase">Của {requestOwnerName}</div>
                                 <div className="font-bold text-gray-700">
-                                    {format(new Date(req.requestDate), 'dd/MM')} ({req.requestShift})
+                                    {format(parseISO(req.requestDate), 'dd/MM')} ({req.requestShift})
                                 </div>
                                 <div className="text-xs text-gray-500 truncate">{getJobName(req.requestJobId)}</div>
                             </div>
@@ -89,7 +91,7 @@ const SwapHistory: React.FC<Props> = ({ requests, employees, jobs, currentUserId
                             <div className="text-center">
                                 <div className="text-[10px] text-gray-500 uppercase">Của {targetOwnerName}</div>
                                 <div className="font-bold text-gray-700">
-                                    {format(new Date(req.targetDate), 'dd/MM')} ({req.targetShift})
+                                    {format(parseISO(req.targetDate), 'dd/MM')} ({req.targetShift})
                                 </div>
                                 <div className="text-xs text-gray-500 truncate">
                                     {req.targetJobId ? getJobName(req.targetJobId) : '(Nghỉ/Không có việc)'}

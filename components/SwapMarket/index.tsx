@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { format, parseISO } from 'date-fns';
 import { ArrowLeftRight, CheckCircle, XCircle, Clock, History, Inbox, Send } from 'lucide-react';
 import { swapService } from '../../services/swapService';
-import { ScheduleItem, SwapRequest, Employee } from '../../types';
+import { SwapRequest, Employee } from '../../types';
 import { useData } from '../../context/DataContext';
 import toast from 'react-hot-toast';
 import SwapHistory from './SwapHistory';
 import { useQueryClient } from '@tanstack/react-query';
-import { SCHEDULE_KEYS } from '../../hooks/useSchedulesQuery';
+import EmptyState from '../common/EmptyState';
 
 interface Props {
     currentUser: Employee;
@@ -51,7 +50,6 @@ const SwapMarket: React.FC<Props> = ({ currentUser }) => {
             await swapService.approveRequest(req.id);
             toast.success("Đã chấp nhận đổi lịch!");
             loadRequests();
-            queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
         } catch (error) {
             console.error(error);
             toast.error("Lỗi xử lý đổi lịch");
@@ -97,7 +95,7 @@ const SwapMarket: React.FC<Props> = ({ currentUser }) => {
                 <div className="flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2 py-0.5 rounded textxs font-bold text-white text-[10px] uppercase bg-yellow-500">
+                            <span className="px-2 py-0.5 rounded text-xs font-bold text-white text-[10px] uppercase bg-yellow-500">
                                 Chờ duyệt
                             </span>
                             <span className="text-xs text-gray-400">{format(new Date(req.createdAt), 'dd/MM/yyyy HH:mm')}</span>
@@ -113,7 +111,7 @@ const SwapMarket: React.FC<Props> = ({ currentUser }) => {
                 <div className="bg-slate-50 p-2 rounded border border-slate-100 text-sm grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
                     <div className="text-center">
                         <div className="text-[10px] text-gray-500 uppercase">Của {type === 'incoming' ? partnerName : 'Bạn'}</div>
-                        <div className="font-bold text-blue-700">{format(new Date(req.requestDate), 'dd/MM')} ({req.requestShift})</div>
+                        <div className="font-bold text-blue-700">{format(parseISO(req.requestDate), 'dd/MM')} ({req.requestShift})</div>
                         <div className="text-xs truncate" title={getJobName(req.requestJobId)}>{getJobName(req.requestJobId)}</div>
                     </div>
 
@@ -121,7 +119,7 @@ const SwapMarket: React.FC<Props> = ({ currentUser }) => {
 
                     <div className="text-center">
                         <div className="text-[10px] text-gray-500 uppercase">Của {type === 'incoming' ? 'Bạn' : partnerName}</div>
-                        <div className="font-bold text-purple-700">{format(new Date(req.targetDate), 'dd/MM')} ({req.targetShift})</div>
+                        <div className="font-bold text-purple-700">{format(parseISO(req.targetDate), 'dd/MM')} ({req.targetShift})</div>
                         <div className="text-xs truncate italic text-gray-600">
                             {req.targetJobId ? getJobName(req.targetJobId) : '(Không có việc)'}
                         </div>
@@ -191,19 +189,21 @@ const SwapMarket: React.FC<Props> = ({ currentUser }) => {
                     <div className="space-y-3">
                         {activeTab === 'incoming' && (
                             pendingIncoming.length === 0 ?
-                                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                                    <CheckCircle className="w-12 h-12 mb-2 opacity-20" />
-                                    <p className="text-sm">Không có yêu cầu nào cần duyệt.</p>
-                                </div>
+                                <EmptyState
+                                    icon={Inbox}
+                                    title="Không có yêu cầu nào cần duyệt"
+                                    description="Lịch đổi ca của bạn sẽ hiển thị ở đây khi có người gửi."
+                                />
                                 : pendingIncoming.map(req => <RequestCard key={req.id} req={req} type="incoming" />)
                         )}
 
                         {activeTab === 'outgoing' && (
                             pendingOutgoing.length === 0 ?
-                                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                                    <Send className="w-12 h-12 mb-2 opacity-20" />
-                                    <p className="text-sm">Bạn không có yêu cầu nào đang chờ.</p>
-                                </div>
+                                <EmptyState
+                                    icon={Send}
+                                    title="Bạn không có yêu cầu nào đang chờ"
+                                    description="Các yêu cầu đổi ca do bạn gửi đi sẽ hiển thị ở đây."
+                                />
                                 : pendingOutgoing.map(req => <RequestCard key={req.id} req={req} type="outgoing" />)
                         )}
 

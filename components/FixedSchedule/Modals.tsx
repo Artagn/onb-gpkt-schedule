@@ -227,7 +227,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
                 const autoLeaveRequest: LeaveRequest = {
                     id: leaveId,
                     employeeId: empId,
-                    date: nextDay.toISOString(),
+                    date: format(nextDay, 'yyyy-MM-dd'),
                     shift: 'Sáng',
                     reason: '[Tự động] Nghỉ bù sau ca tối',
                     status: 'Pending'
@@ -302,7 +302,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         } else {
             const newItem: ScheduleItem = {
                 id: `manual_pat_${day.getTime()}_${jobId}_${Math.random()}`,
-                date: day.toISOString(),
+                date: format(day, 'yyyy-MM-dd'),
                 shift: shift as any,
                 jobId: jobId,
                 employeeIds: [empId],
@@ -336,7 +336,7 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         const updates: Promise<void>[] = [];
         const newId = `manual_${day.getTime()}_${adHocJobId}_${shift}_${Date.now()}`;
         const newItem: ScheduleItem = {
-            id: newId, date: day.toISOString(), shift: shift as any, jobId: adHocJobId, employeeIds: [empId], isFixed: true, requiredCount: 1, coefficient: validCoefficient, status: 'Pending'
+            id: newId, date: format(day, 'yyyy-MM-dd'), shift: shift as any, jobId: adHocJobId, employeeIds: [empId], isFixed: true, requiredCount: 1, coefficient: validCoefficient, status: 'Pending'
         };
         nextSchedule.push(newItem);
         updates.push(scheduleService.save(newItem));

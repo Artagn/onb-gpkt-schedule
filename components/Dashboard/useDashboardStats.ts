@@ -1,13 +1,13 @@
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { Role, ScheduleItem, Status, SchedulePattern, Job } from '../../types';
-import { isSameDay, setHours, setMinutes } from 'date-fns';
+import { Role, ScheduleItem, Status, SchedulePattern, Job, User } from '../../types';
+import { isSameDay, setHours, setMinutes, parseISO, format } from 'date-fns';
 
-export const useDashboardStats = (user: any) => {
+export const useDashboardStats = (user: User) => {
     const {
         employees, jobs, subJobs, schedule, dailyAllocations: allocations,
-        setLeaves, setSchedule, patterns, leaves,
+        patterns, leaves,
         viewRole // Get viewRole
     } = useData();
 
@@ -71,7 +71,7 @@ export const useDashboardStats = (user: any) => {
 
     // 1. FILTER SCHEDULE BASED ON ROLE & UI FILTERS
     const rawTodaySchedule = useMemo(() =>
-        schedule.filter(s => isSameDay(new Date(s.date), now) && s.jobId !== 'JOB_NGHI_BU'),
+        schedule.filter(s => isSameDay(parseISO(s.date), now) && s.jobId !== 'JOB_NGHI_BU'),
         [schedule, now]
     );
 
@@ -89,16 +89,13 @@ export const useDashboardStats = (user: any) => {
             if (isStaff && !s.employeeIds.includes(currentEmp?.id || '')) return false;
 
             // 3. Time Check (Only show PAST unmatched tasks)
-            const sDate = new Date(s.date);
-            const today = new Date();
-            sDate.setHours(0, 0, 0, 0);
-            today.setHours(0, 0, 0, 0);
+            const todayStr = format(now, 'yyyy-MM-dd');
 
             // If date is in the past, it's definitely incomplete
-            if (sDate < today) return true;
+            if (s.date < todayStr) return true;
 
             // If date is in the future, it's NOT incomplete yet
-            if (sDate > today) return false;
+            if (s.date > todayStr) return false;
 
             // If date is TODAY, check shift end time
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -140,7 +137,7 @@ export const useDashboardStats = (user: any) => {
         ? allocations.filter(a => a.employeeId === currentEmp.id)
         : allocations;
 
-    const todayAllocations = relevantAllocations.filter(a => isSameDay(new Date(a.date), now));
+    const todayAllocations = relevantAllocations.filter(a => isSameDay(parseISO(a.date), now));
 
     const pendingAllocations = useMemo(() => {
         return todayAllocations.reduce((acc, curr) => {
@@ -149,13 +146,13 @@ export const useDashboardStats = (user: any) => {
     }, [todayAllocations]);
 
     // Helpers
-    const getSubJobs = (jobId: string, shift: string) => {
-        const dayIndex = now.getDay();
+    const currentDayOfWeek = now.getDay();
+    const getSubJobs = useCallback((jobId: string, shift: string) => {
         const map: Record<number, string> = { 1: 'Thứ 2', 2: 'Thứ 3', 3: 'Thứ 4', 4: 'Thứ 5', 5: 'Thứ 6', 6: 'Thứ 7', 0: 'Chủ nhật' };
-        const dayName = map[dayIndex];
+        const dayName = map[currentDayOfWeek];
         const subs = subJobs.filter(s => s.jobId === jobId && s.day === dayName && s.shift === shift);
         return subs.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-    };
+    }, [currentDayOfWeek, subJobs]);
 
     // --- LOGIC: UNASSIGNED TASKS (Patterns vs Actual) ---
     const unassignedTasks = useMemo(() => {
@@ -245,7 +242,7 @@ export const useDashboardStats = (user: any) => {
             upcoming: upcoming.sort(sorter),
             finished: finished.sort(sorter)
         };
-    }, [displaySchedule, now, subJobs]);
+    }, [displaySchedule, now, subJobs, getSubJobs]);
 
     return {
         // Data

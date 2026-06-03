@@ -17,8 +17,9 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, subText, onClick, animate = true }) => {
-    // Animated counting effect
-    const displayValue = animate ? useCountUp(value, { duration: 800 }) : value;
+    // Animated counting effect - called unconditionally to adhere to React Rules of Hooks
+    const animatedValue = useCountUp(value, { duration: 800 });
+    const displayValue = animate ? animatedValue : value;
 
     return (
         <div onClick={onClick} className={`bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer relative overflow-hidden group`}>

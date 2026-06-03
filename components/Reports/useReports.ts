@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
     startOfMonth, endOfMonth, subWeeks, addWeeks, format, parse,
     differenceInDays, eachDayOfInterval, isWithinInterval, startOfDay,
-    subMonths, isSameMonth, startOfWeek, endOfWeek
+    subMonths, isSameMonth, startOfWeek, endOfWeek, parseISO
 } from 'date-fns';
 import { useData } from '../../context/DataContext';
 import { useSchedulesQuery } from '../../hooks/useSchedulesQuery';
@@ -182,7 +182,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
             const job = jobs.find(j => j.id === item.jobId);
             if (!job) return;
 
-            if (!isWithinInterval(new Date(item.date), { start: filterStart, end: filterEnd })) return;
+            if (item.date < fromDate || item.date > toDate) return;
             if (!selectedJobGroups.includes(job.group)) return;
 
             item.employeeIds.forEach(empId => {
@@ -251,9 +251,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
         const filterEnd = new Date(toDate + 'T23:59:59');
 
         allocations.forEach(alloc => {
-            const d = new Date(alloc.date);
-            const isInRange = isWithinInterval(d, { start: filterStart, end: filterEnd });
-            if (!isInRange) return;
+            if (alloc.date < fromDate || alloc.date > toDate) return;
 
             if (!selectedEmployeeIds.includes(alloc.employeeId)) return;
 
@@ -313,7 +311,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
         schedule.forEach(item => {
             const job = jobs.find(j => j.id === item.jobId);
             if (!job || job.group !== 'Đào tạo' || item.status !== 'Completed') return;
-            if (!isWithinInterval(new Date(item.date), { start: filterStart, end: filterEnd })) return;
+            if (item.date < fromDate || item.date > toDate) return;
             if (!selectedJobGroups.includes(job.group)) return;
 
             const hasSelectedEmp = item.employeeIds.some(id => selectedEmployeeIds.includes(id));
@@ -330,8 +328,8 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
 
             result.push({
                 id: item.id,
-                date: new Date(item.date),
-                dateStr: format(new Date(item.date), 'dd/MM/yyyy'),
+                date: parseISO(item.date),
+                dateStr: format(parseISO(item.date), 'dd/MM/yyyy'),
                 jobName: job.name,
                 assignees,
                 participants,
@@ -373,7 +371,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
                 requestJobName: reqJob,
                 targetJobName: targetJob,
                 createdAtStr: format(new Date(req.createdAt), 'dd/MM/yyyy HH:mm'),
-                requestDateStr: format(new Date(req.requestDate), 'dd/MM')
+                requestDateStr: format(parseISO(req.requestDate), 'dd/MM')
             };
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [swapRequests, fromDate, toDate, selectedEmployeeIds, employees, jobs]);
@@ -395,8 +393,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
 
         return leaves.filter(l => {
             // Filter by Date (The new date of the leave)
-            const date = new Date(l.date);
-            if (!isWithinInterval(date, { start: filterStart, end: filterEnd })) return false;
+            if (l.date < fromDate || l.date > toDate) return false;
 
             // Filter for "Changed" leaves OR Auto leaves (since they are essentially compensatory swaps)
             if (!l.reason.includes('[Đã đổi]') && !l.reason.includes('[Tự động]')) return false;
@@ -416,7 +413,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
             return {
                 id: l.id,
                 employeeName: emp?.fullName || l.employeeId,
-                dateStr: format(new Date(l.date), 'dd/MM/yyyy'),
+                dateStr: format(parseISO(l.date), 'dd/MM/yyyy'),
                 originalDateStr, // New Field
                 shift: l.shift,
                 reason: l.reason,

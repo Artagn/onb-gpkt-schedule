@@ -5,6 +5,7 @@
 
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { sanitizeExcelValue } from '../utils/evaluationHelpers';
 
 interface SummaryRow {
     employeeName: string;
@@ -68,7 +69,7 @@ export const exportEvaluationData = (data: ExportData) => {
         'Xếp hạng'
     ];
     const summaryData = summaryRows.map(r => [
-        r.employeeName,
+        sanitizeExcelValue(r.employeeName),
         r.kpiPlanRate.toFixed(0),
         r.kpiActualRate.toFixed(1),
         r.kpiCompletionRate.toFixed(1),
@@ -76,7 +77,7 @@ export const exportEvaluationData = (data: ExportData) => {
         r.workActualPoints.toFixed(1),
         r.workCompletionRate.toFixed(1),
         r.overallRate.toFixed(1),
-        r.rating
+        sanitizeExcelValue(r.rating)
     ]);
     const ws1 = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryData]);
     ws1['!cols'] = [
@@ -102,7 +103,7 @@ export const exportEvaluationData = (data: ExportData) => {
         'TL Hoàn thành (%)'
     ];
     const kpiData = kpiRows.map(r => [
-        r.employeeName,
+        sanitizeExcelValue(r.employeeName),
         r.received,
         r.notUsedExcluded,
         r.stoppedExcluded,
@@ -135,7 +136,7 @@ export const exportEvaluationData = (data: ExportData) => {
         'TL HT (%)'
     ];
     const workData = workPointsRows.map(r => [
-        r.employeeName,
+        sanitizeExcelValue(r.employeeName),
         r.trainingPoints.toFixed(1),
         r.livechatPoints.toFixed(1),
         r.totalCrmPoints.toFixed(1),
@@ -173,6 +174,9 @@ interface MultiPeriodExportData {
 
 export const exportMultiPeriodEvaluations = (data: MultiPeriodExportData) => {
     const { periods, evaluations, employees } = data;
+    if (!periods || periods.length === 0 || !employees || employees.length === 0) {
+        return; // Guard against empty datasets
+    }
     const wb = XLSX.utils.book_new();
 
     // Sort periods chronologically
@@ -201,42 +205,56 @@ export const exportMultiPeriodEvaluations = (data: MultiPeriodExportData) => {
         employeeDataMap.get(ev.employeeId)!.rates.set(ev.periodId, rate);
     });
 
-    const compData: any[][] = [];
+    interface CompItem {
+        name: string;
+        rates: string[];
+        avg: number;
+        trend: string;
+    }
+
+    const compItems: CompItem[] = [];
     employeeDataMap.forEach(empData => {
-        const row: any[] = [empData.name];
         const rates: number[] = [];
+        const formattedRates: string[] = [];
 
         sortedPeriods.forEach(period => {
             const rate = empData.rates.get(period.id);
             if (rate !== undefined) {
-                row.push(rate.toFixed(1) + '%');
+                formattedRates.push(rate.toFixed(1) + '%');
                 rates.push(rate);
             } else {
-                row.push('-');
+                formattedRates.push('-');
             }
         });
 
         // Average
         const avg = rates.length > 0 ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
-        row.push(avg.toFixed(1) + '%');
 
         // Trend
+        let trend = '-';
         if (rates.length >= 2) {
             const diff = rates[rates.length - 1] - rates[rates.length - 2];
-            row.push(diff > 0 ? `↑ +${diff.toFixed(1)}%` : diff < 0 ? `↓ ${diff.toFixed(1)}%` : '→ 0%');
-        } else {
-            row.push('-');
+            trend = diff > 0 ? `↑ +${diff.toFixed(1)}%` : diff < 0 ? `↓ ${diff.toFixed(1)}%` : '→ 0%';
         }
 
-        compData.push(row);
+        compItems.push({
+            name: empData.name,
+            rates: formattedRates,
+            avg,
+            trend
+        });
     });
 
-    // Sort by average (descending)
-    compData.sort((a, b) => {
-        const avgA = parseFloat(a[a.length - 2]) || 0;
-        const avgB = parseFloat(b[b.length - 2]) || 0;
-        return avgB - avgA;
-    });
+    // Sort by average (descending) using the raw numeric average
+    compItems.sort((a, b) => b.avg - a.avg);
+
+    // Convert sorted items to the flat array-of-arrays format
+    const compData = compItems.map(item => [
+        sanitizeExcelValue(item.name),
+        ...item.rates.map(sanitizeExcelValue),
+        sanitizeExcelValue(item.avg.toFixed(1) + '%'),
+        sanitizeExcelValue(item.trend)
+    ]);
 
     const ws1 = XLSX.utils.aoa_to_sheet([compHeaders, ...compData]);
     ws1['!cols'] = [
@@ -255,9 +273,9 @@ export const exportMultiPeriodEvaluations = (data: MultiPeriodExportData) => {
         const sheetData = periodEvals.map(ev => {
             const emp = employees.find(e => e.id === ev.employeeId);
             return [
-                emp?.fullName || 'Unknown',
+                sanitizeExcelValue(emp?.fullName || 'Unknown'),
                 (ev.summary?.overallRate || 0).toFixed(1),
-                ev.summary?.result || '-',
+                sanitizeExcelValue(ev.summary?.result || '-'),
                 (ev.summary?.totalWorkPoints || 0).toFixed(1)
             ];
         });

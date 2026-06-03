@@ -42,9 +42,8 @@ const PublicScheduleContainer: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                // Determine base URL: use relative in production if rewritten, or absolute
-                // Assuming no rewrite setup, using absolute URL for asia-southeast1
-                const apiUrl = 'https://asia-southeast1-onb-gpkt-schedule.cloudfunctions.net/getPublicTrainingSchedule';
+                // Routing through Firebase Hosting rewrite to enable native CDN Edge Caching
+                const apiUrl = '/api/public-schedule';
                 
                 const response = await fetch(apiUrl);
                 if (!response.ok) {

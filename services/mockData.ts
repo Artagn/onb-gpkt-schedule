@@ -674,6 +674,7 @@ export const initialSubJobs: SubJob[] = subJobDataRaw.map((raw, idx) => {
         startTime: raw.start,
         endTime: raw.end,
         link: raw.link,
+        documentLink: '',
         isActive: true
     };
 }).filter(s => s.jobId !== 'unknown');

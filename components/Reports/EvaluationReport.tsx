@@ -8,6 +8,7 @@ import React, { useMemo } from 'react';
 import { ClipboardList, TrendingUp, TrendingDown, Minus, Users, Award, Download } from 'lucide-react';
 import { useEvaluationPeriodsQuery, useEvaluationsByPeriodsQuery } from '../../hooks/useEvaluationQuery';
 import { useData } from '../../context/DataContext';
+import EmptyState from '../common/EmptyState';
 import { isDTGroup } from '../../utils/permissions';
 import { exportMultiPeriodEvaluations } from '../../services/evaluationExportService';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
@@ -195,7 +196,7 @@ export const EvaluationReport: React.FC<EvaluationReportProps> = ({ hideExportBu
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex items-content gap-2 text-blue-600 mb-1">
+                    <div className="flex items-center gap-2 text-blue-600 mb-1">
                         <Users className="w-4 h-4" />
                         <span className="text-xs font-semibold uppercase">Tổng NV</span>
                     </div>
@@ -289,10 +290,7 @@ export const EvaluationReport: React.FC<EvaluationReportProps> = ({ hideExportBu
             )}
 
             {matchingPeriods.length === 0 && (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                    <ClipboardList className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    <p>Không có kỳ đánh giá nào trong khoảng thời gian đã chọn</p>
-                </div>
+                <EmptyState icon={ClipboardList} title="Không có kỳ đánh giá nào trong khoảng thời gian đã chọn" />
             )}
 
             {/* Legend */}

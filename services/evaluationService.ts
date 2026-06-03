@@ -13,12 +13,12 @@ import {
     deleteDoc,
     writeBatch,
     query,
-    where,
-    orderBy
+    where
 } from 'firebase/firestore';
 import { EvaluationMetric, EvaluationPeriod, EmployeeEvaluation } from '../types';
 import { EvaluationMetricSchema, EvaluationPeriodSchema, EmployeeEvaluationSchema } from '../schemas';
 import { ZodSchema } from 'zod';
+import { getLivechatJobDefaultStandard } from '../utils/evaluationHelpers';
 
 // Collection names
 export const EVAL_COLLECTIONS = {
@@ -72,6 +72,14 @@ async function deleteEvalDocument(collectionName: string, docId: string): Promis
     }
 }
 
+function chunkArray<T>(arr: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+    }
+    return chunks;
+}
+
 // ========== EVALUATION METRICS SERVICE ==========
 
 export const evaluationMetricsService = {
@@ -80,12 +88,15 @@ export const evaluationMetricsService = {
     delete: (id: string) => deleteEvalDocument(EVAL_COLLECTIONS.METRICS, id),
 
     saveAll: async (metrics: EvaluationMetric[]): Promise<void> => {
-        const batch = writeBatch(db);
-        metrics.forEach(metric => {
-            const docRef = doc(db, EVAL_COLLECTIONS.METRICS, metric.id);
-            batch.set(docRef, metric, { merge: true });
-        });
-        await batch.commit();
+        const chunks = chunkArray(metrics, 400);
+        for (const chunk of chunks) {
+            const batch = writeBatch(db);
+            chunk.forEach(metric => {
+                const docRef = doc(db, EVAL_COLLECTIONS.METRICS, metric.id);
+                batch.set(docRef, metric, { merge: true });
+            });
+            await batch.commit();
+        }
     },
 
     // Seed default metrics - supports partial seeding (adds missing categories)
@@ -140,6 +151,20 @@ export const evaluationPeriodsService = {
             metricOverrides[m.id] = m.defaultPoints;
         });
 
+        // Pre-populate livechat standards based on active jobs in 'jobs' collection
+        const livechatStandards: { [jobId: string]: number } = {};
+        try {
+            const jobsSnapshot = await getDocs(collection(db, 'jobs'));
+            jobsSnapshot.docs.forEach(doc => {
+                const job = doc.data();
+                if (job.group === 'Livechat' && job.isActive) {
+                    livechatStandards[doc.id] = getLivechatJobDefaultStandard(job.name || '');
+                }
+            });
+        } catch (e) {
+            console.error('Error pre-populating livechat standards:', e);
+        }
+
         const period: EvaluationPeriod = {
             id,
             name: `Đánh giá tháng ${String(month).padStart(2, '0')}/${year}`,
@@ -156,7 +181,7 @@ export const evaluationPeriodsService = {
                     .filter(m => m.category === 'livechat_difficulty' && m.isActive)
                     .sort((a, b) => a.order - b.order)
                     .map(m => ({ id: m.id, name: m.name, multiplier: m.defaultPoints })),
-                // livechatStandards will be configured in PeriodManager UI
+                livechatStandards,
             },
             ksConfig: {
                 kpiPlanRate: 95,
@@ -249,17 +274,20 @@ export const evaluationsService = {
     // Bulk approve multiple evaluations
     bulkApprove: async (ids: string[], approvedBy: string): Promise<void> => {
         try {
-            const batch = writeBatch(db);
             const now = new Date().toISOString();
-            ids.forEach(id => {
-                const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, id);
-                batch.update(docRef, {
-                    status: 'approved',
-                    approvedBy,
-                    approvedAt: now
+            const chunks = chunkArray(ids, 400);
+            for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(id => {
+                    const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, id);
+                    batch.set(docRef, {
+                        status: 'approved',
+                        approvedBy,
+                        approvedAt: now
+                    }, { merge: true });
                 });
-            });
-            await batch.commit();
+                await batch.commit();
+            }
         } catch (error) {
             console.error('Error bulk approving evaluations:', error);
             throw error;
@@ -269,12 +297,15 @@ export const evaluationsService = {
     // Delete multiple evaluations (cleanup stale records)
     deleteMany: async (ids: string[]): Promise<void> => {
         try {
-            const batch = writeBatch(db);
-            ids.forEach(id => {
-                const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, id);
-                batch.delete(docRef);
-            });
-            await batch.commit();
+            const chunks = chunkArray(ids, 400);
+            for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(id => {
+                    const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, id);
+                    batch.delete(docRef);
+                });
+                await batch.commit();
+            }
         } catch (error) {
             console.error('Error deleting evaluations:', error);
             throw error;
@@ -317,25 +348,25 @@ export const evaluationsService = {
                 lockedBy,
             };
 
-            // 6. Batch write: snapshot into each evaluation + update period
-            const batch = writeBatch(db);
-
-            // Snapshot each evaluation
-            evaluations.forEach(ev => {
-                const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, ev.id);
-                batch.update(docRef, { lockedSnapshot: snapshot });
-            });
+            // 6. Batch write: snapshot into each evaluation
+            const chunks = chunkArray(evaluations, 400);
+            for (const chunk of chunks) {
+                const batch = writeBatch(db);
+                chunk.forEach(ev => {
+                    const docRef = doc(db, EVAL_COLLECTIONS.EVALUATIONS, ev.id);
+                    batch.set(docRef, { lockedSnapshot: snapshot }, { merge: true });
+                });
+                await batch.commit();
+            }
 
             // Update period status to closed + lock fields
             const periodRef = doc(db, EVAL_COLLECTIONS.PERIODS, periodId);
-            batch.update(periodRef, {
+            await setDoc(periodRef, {
                 status: 'closed',
                 lockedAt: now,
                 lockedBy,
                 updatedAt: now,
-            });
-
-            await batch.commit();
+            }, { merge: true });
 
         } catch (error) {
             console.error('Error locking period:', error);

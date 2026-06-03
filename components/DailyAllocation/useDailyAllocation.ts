@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Employee, Job, DailyAllocation, Status, ScheduleItem, LeaveRequest, Role } from '../../types';
-import { format, isSameDay, startOfDay, endOfDay, isWithinInterval, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, addWeeks, subMonths, addMonths } from 'date-fns';
+import { format, isSameDay, startOfDay, endOfDay, isWithinInterval, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, addWeeks, subMonths, addMonths, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { allocationsService, auditService } from '../../services/firestoreService';
 import { auth } from '../../services/firebaseConfig';
@@ -139,29 +139,36 @@ export const useDailyAllocation = ({
         }
     };
 
+    // ========== BUSY MAP OPTIMIZED LOOKUP (O(1)) ==========
+    const busyMap = useMemo(() => {
+        const map = new Set<string>();
+
+        schedule.forEach(s => {
+            if (s.status !== 'Cancelled' && s.date === fromDateStr) {
+                s.employeeIds.forEach(empId => {
+                    map.add(`${empId}_${s.shift}`);
+                });
+            }
+        });
+
+        leaves.forEach(l => {
+            if ((l.status === 'Approved' || l.status === 'Pending') && l.date === fromDateStr) {
+                map.add(`${l.employeeId}_${l.shift}`);
+            }
+        });
+
+        return map;
+    }, [schedule, leaves, fromDateStr]);
+
     // ========== BUSY CHECK HELPER ==========
     const checkBusy = (empId: string, targetShift: string) => {
-        const hasSchedule = schedule.some(s =>
-            isSameDay(new Date(s.date), fromDate) &&
-            s.shift === targetShift &&
-            s.employeeIds.includes(empId) &&
-            s.status !== 'Cancelled' // Loại trừ lịch đã hủy
-        );
-        if (hasSchedule) return true;
-
-        const hasLeave = leaves.some(l =>
-            l.employeeId === empId &&
-            isSameDay(new Date(l.date), fromDate) &&
-            l.shift === targetShift &&
-            (l.status === 'Approved' || l.status === 'Pending')
-        );
-        return hasLeave;
+        return busyMap.has(`${empId}_${targetShift}`);
     };
 
     // ========== AVAILABLE EMPLOYEES ==========
     const availableEmployees = useMemo(() => {
         return activeEmployees.filter(emp => {
-            if (!emp.jobGroups.includes('Chia hàng ngày')) return false;
+            if (!emp.jobGroups.includes('Chia hàng daily') && !emp.jobGroups.includes('Chia hàng ngày')) return false;
 
             if (isSingleDay) {
                 const busyMorning = checkBusy(emp.id, 'Sáng');
@@ -177,7 +184,7 @@ export const useDailyAllocation = ({
             }
             return true;
         }).sort((a, b) => (a.stt || 9999) - (b.stt || 9999));
-    }, [activeEmployees, schedule, leaves, fromDate, isSingleDay, shift]);
+    }, [activeEmployees, busyMap, isSingleDay, shift]);
 
     // ========== ALLOCATION HANDLERS ==========
     const handleAllocationChange = (empId: string, jobId: string, field: keyof DailyAllocation, value: number) => {
@@ -246,7 +253,7 @@ export const useDailyAllocation = ({
     // ========== DATA HELPERS ==========
     const getAllocationData = (empId: string, jobId: string) => {
         const relevantAllocations = localAllocations.filter(a => {
-            const aDate = new Date(a.date);
+            const aDate = parseISO(a.date);
             const isInRange = isWithinInterval(aDate, { start: startOfDay(fromDate), end: endOfDay(toDate) });
             return a.employeeId === empId && a.jobId === jobId && isInRange;
         });

@@ -78,6 +78,7 @@ export interface SubJob {
     startTime: string; // HH:mm
     endTime: string; // HH:mm
     link: string; // Google Meet
+    documentLink?: string; // Link tài liệu hướng dẫn
     isActive: boolean;
 }
 

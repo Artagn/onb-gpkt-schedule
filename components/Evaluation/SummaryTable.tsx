@@ -12,7 +12,7 @@ import { useEvaluationsQuery } from '../../hooks/useEvaluationQuery';
 import { isDTGroup } from '../../utils/permissions';
 import { BarChart3, Info } from 'lucide-react';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
-import { getDifficultyConfig, calcDifficultyConverted } from '../../utils/evaluationHelpers';
+import { getDifficultyConfig, calcDifficultyConverted, getLivechatJobDefaultStandard } from '../../utils/evaluationHelpers';
 
 interface SummaryTableProps {
     openPeriod: EvaluationPeriod;
@@ -112,7 +112,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ openPeriod, employeeId }) =
                 totalFixedPoints += stats.points;
                 
                 const lcData = existingEval.livechatData[job.id] || { standardPerSession: undefined, actual: undefined };
-                const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig?.livechatStandards?.[job.id] || 35);
+                const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig?.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name));
                 const actual = lcData.actual ?? 0;
 
                 const rowRequests = stats.total * standardPerSession;
@@ -128,7 +128,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ openPeriod, employeeId }) =
             totalFixedPoints += stats.points;
 
             // Calculate total requests - using period config
-            const standardPerSession = openPeriod?.dtConfig?.livechatStandards?.[job.id] || 35;
+            const standardPerSession = openPeriod?.dtConfig?.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name);
             const sessionsForCalc = stats.total - stats.offHours;
             totalRequests += sessionsForCalc * standardPerSession;
         });

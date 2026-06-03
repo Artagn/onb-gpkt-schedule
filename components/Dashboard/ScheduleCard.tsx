@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ScheduleItem, Job, SubJob, Employee } from '../../types';
-import { Clock, Video, Check, ArrowLeftRight } from 'lucide-react';
+import { Clock, Video, Check, ArrowLeftRight, FileText } from 'lucide-react';
 
 interface ScheduleCardProps {
     item: ScheduleItem;
@@ -131,11 +131,18 @@ const ScheduleCard: React.FC<ScheduleCardProps> = ({
                                 <div className="text-xs font-bold text-blue-700 leading-tight line-clamp-2" title={sub.name}>{sub.name}</div>
                                 <div className="flex items-center justify-between text-[10px] text-gray-500">
                                     <span className="flex items-center"><Clock className="w-3 h-3 mr-1" /> {sub.startTime} - {sub.endTime}</span>
-                                    {sub.link && (
-                                        <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center bg-blue-50 px-1.5 py-0.5 rounded-full">
-                                            <Video className="w-3 h-3 mr-1" /> Meet
-                                        </a>
-                                    )}
+                                    <div className="flex gap-1.5 items-center">
+                                        {sub.link && (
+                                            <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center bg-blue-50 px-1.5 py-0.5 rounded-full">
+                                                <Video className="w-3 h-3 mr-1" /> Meet
+                                            </a>
+                                        )}
+                                        {sub.documentLink && (
+                                            <a href={sub.documentLink} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline flex items-center bg-emerald-50 px-1.5 py-0.5 rounded-full" title="Tài liệu hướng dẫn">
+                                                <FileText className="w-3 h-3 mr-1" /> Doc
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))

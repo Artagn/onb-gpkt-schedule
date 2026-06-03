@@ -31,6 +31,10 @@ if (!admin.apps.length) {
     admin.initializeApp();
 }
 const db = admin.firestore();
+// Global warm in-memory cache for subsequent requests when CDN cache expires or is bypassed
+let cachedResponse = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache duration
 exports.getPublicTrainingSchedule = functions
     .region('asia-southeast1')
     .https.onRequest(async (req, res) => {
@@ -40,6 +44,15 @@ exports.getPublicTrainingSchedule = functions
     res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
     if (req.method === 'OPTIONS') {
         res.status(204).send('');
+        return;
+    }
+    // Return warm memory cache if available and fresh
+    const now = Date.now();
+    if (cachedResponse && (now - lastCacheTime < CACHE_DURATION)) {
+        res.status(200).json({
+            success: true,
+            data: cachedResponse
+        });
         return;
     }
     try {
@@ -77,25 +90,40 @@ exports.getPublicTrainingSchedule = functions
                 isActive: data.isActive
             });
         });
-        // Lấy Holidays và WorkPeriods để xử lý hiển thị nghỉ lễ
+        // Lấy Holidays và WorkPeriods để xử lý hiển thị nghỉ lễ (with selective projections)
         const holidaysSnapshot = await db.collection('holidays').get();
         const holidays = [];
         holidaysSnapshot.forEach(doc => {
-            holidays.push(Object.assign({ id: doc.id }, doc.data()));
+            const data = doc.data();
+            holidays.push({
+                id: doc.id,
+                date: data.date,
+                name: data.name
+            });
         });
         const workPeriodsSnapshot = await db.collection('workPeriods').get();
         const workPeriods = [];
         workPeriodsSnapshot.forEach(doc => {
-            workPeriods.push(Object.assign({ id: doc.id }, doc.data()));
+            const data = doc.data();
+            workPeriods.push({
+                id: doc.id,
+                startDate: data.startDate,
+                endDate: data.endDate,
+                days: data.days,
+                title: data.title
+            });
         });
+        // Update global cache
+        cachedResponse = {
+            jobs,
+            subJobs,
+            holidays,
+            workPeriods
+        };
+        lastCacheTime = now;
         res.status(200).json({
             success: true,
-            data: {
-                jobs,
-                subJobs,
-                holidays,
-                workPeriods
-            }
+            data: cachedResponse
         });
     }
     catch (error) {

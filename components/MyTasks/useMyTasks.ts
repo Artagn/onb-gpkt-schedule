@@ -2,10 +2,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
 import { Role, ScheduleItem, DailyAllocation, Status, LeaveRequest } from '../../types';
-import { isSameDay } from 'date-fns';
+import { isSameDay, format, parseISO } from 'date-fns';
 import { allocationsService, auditService } from '../../services/firestoreService';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { useScheduleMutations } from '../../hooks/useSchedulesQuery';
 import { ALLOCATION_KEYS, useAllocationMutations } from '../../hooks/useAllocationsQuery';
@@ -15,7 +14,7 @@ import { useDateFilter, DatePreset } from '../../hooks/useDateFilter';
 import { useLeaveHandlers } from '../../hooks/useLeaveHandlers';
 
 export type { DatePreset } from '../../hooks/useDateFilter';
-export type TabType = 'overview' | 'fixed' | 'daily' | 'leave' | 'kpi';
+export type TabType = 'overview' | 'fixed' | 'daily' | 'leave' | 'kpi' | 'market';
 
 export const useMyTasks = (user: any, initialTab?: TabType) => {
     // v3.16.0+: Real-time data from DataContext (onSnapshot), no polling needed
@@ -165,7 +164,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
             s.employeeIds.map(empId => {
                 const existingLeave = leaves.find(l =>
                     l.employeeId === empId &&
-                    isSameDay(new Date(l.date), new Date(s.date)) &&
+                    isSameDay(parseISO(l.date), parseISO(s.date)) &&
                     l.shift === s.shift &&
                     (l.reason.includes('[Tự động]') || l.reason.includes('[Đã đổi]'))
                 );
@@ -217,7 +216,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
         autoRestLeaves.forEach(l => {
             const isDuplicate = result.some(existing =>
                 existing.employeeId === l.employeeId &&
-                isSameDay(new Date(existing.date), new Date(l.date)) &&
+                isSameDay(parseISO(existing.date), parseISO(l.date)) &&
                 existing.shift === l.shift &&
                 existing.isAuto
             );
@@ -331,7 +330,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
             const itemToDelete = schedule.find(s => s.id === scheduleId);
 
             // 1.2 Determine Old Date
-            const oldDateStr = itemToDelete ? format(new Date(itemToDelete.date), 'dd/MM/yyyy') : '??';
+            const oldDateStr = itemToDelete ? format(parseISO(itemToDelete.date), 'dd/MM/yyyy') : '??';
 
             // 1.3 Create NEW Leave Request
             const newLeaveRequest: LeaveRequest = {
@@ -353,7 +352,7 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
 
         } else if (existingLeave) {
             // Case 2: Editing an existing Leave Request (already converted)
-            const oldDateStr = format(new Date(existingLeave.date), 'dd/MM/yyyy');
+            const oldDateStr = format(parseISO(existingLeave.date), 'dd/MM/yyyy');
             let updatedLeave: LeaveRequest | undefined;
 
             // Find and construct updated leave
@@ -373,14 +372,14 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
             const restItem = schedule.find(s =>
                 s.jobId === 'JOB_NGHI_BU' &&
                 s.employeeIds.includes(existingLeave.employeeId) &&
-                isSameDay(new Date(s.date), new Date(existingLeave.date)) &&
+                isSameDay(parseISO(s.date), parseISO(existingLeave.date)) &&
                 s.shift === existingLeave.shift
             );
 
             if (restItem) {
                 const updatedSchedule = {
                     ...restItem,
-                    date: new Date(editingAutoLeave.date).toISOString(),
+                    date: format(parseISO(editingAutoLeave.date), 'yyyy-MM-dd'),
                     shift: editingAutoLeave.shift
                 };
                 scheduleMutations.update.mutate(updatedSchedule);

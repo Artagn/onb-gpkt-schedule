@@ -53,46 +53,25 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Menu, RefreshCw, Loader2 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
-import { DataProvider, useData } from './context/DataContext';
+import { DataProvider, useConfigData, useSession } from './context/DataContext';
 import { usePermissions } from './hooks/usePermissions';
 import { DashboardSkeleton } from './components/ui/Skeleton';
 
 function AppContent() {
-    // --- AUTH STATE ---
-    const [user, setUser] = useState<User | null>(null);
-    const [authLoading, setAuthLoading] = useState(true);
-    // const [currentUserRole, setCurrentUserRole] = useState<Role>(Role.Staff); // Removed: Handled by usePermissions
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-    const {
-        employees, // employees from TanStack Query (read-only)
-        jobs, schedule, dailyAllocations, leaves,
-        dataLoaded, isOnline, lastSynced,
-        viewRole, setViewRole
-    } = useData();
+    // 1. Config Context (strictly static master data)
+    const { employees } = useConfigData();
+
+    // 2. Session Context (strictly authentication/metadata)
+    const { user, authLoading, dataLoaded } = useSession();
 
     // --- PERMISSIONS HOOK ---
-    // Replaces effectiveRole calculation and Auth Role setting
     const { role: effectiveRole, isSuperAdmin } = usePermissions(user);
-
-    // --- AUTH LISTENER ---
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            if (currentUser) {
-                // Just set the user, the role is derived in usePermissions
-                setUser(currentUser);
-            } else {
-                setUser(null);
-            }
-            setAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, []); // No dependency on employees needed here anymore
 
     const handleLogout = () => {
         signOut(auth).catch(err => console.error("Firebase signout error", err));
-        setUser(null);
     };
 
     // --- SECURITY CHECK ---
@@ -110,7 +89,7 @@ function AppContent() {
                     duration: 5000,
                     icon: '🔒'
                 });
-                signOut(auth).then(() => setUser(null));
+                signOut(auth);
                 return;
             }
 
@@ -121,7 +100,7 @@ function AppContent() {
                     duration: 5000,
                     icon: '🚫'
                 });
-                signOut(auth).then(() => setUser(null));
+                signOut(auth);
             }
 
             // Note: Status.Inactive ("Ngưng hoạt động") is still ALLOWED to login.
@@ -147,7 +126,7 @@ function AppContent() {
     if (authLoading) return <div className="h-screen flex items-center justify-center">Đang tải...</div>;
 
     if (!user) {
-        return <Login onLoginSuccess={setUser} />;
+        return <Login onLoginSuccess={() => {}} />;
     }
 
     // Show loading while data is being fetched
@@ -168,12 +147,7 @@ function AppContent() {
                     onClose={() => setIsMobileMenuOpen(false)}
                     isCollapsed={isSidebarCollapsed}
                     setIsCollapsed={setIsSidebarCollapsed}
-                    user={user}
-                    isOnline={isOnline}
-                    lastSynced={lastSynced}
                     onLogout={handleLogout}
-                    viewRole={viewRole}
-                    setViewRole={setViewRole}
                 />
 
                 <main className={`flex-1 flex flex-col h-screen overflow-hidden w-full transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52'}`}>
@@ -209,11 +183,6 @@ function AppContent() {
 
                                 <Route path={ROUTES.DAILY_ALLOCATION} element={
                                     <DailyAllocationView
-                                        employees={employees}
-                                        jobs={jobs}
-                                        schedule={schedule}
-                                        allocations={dailyAllocations}
-                                        leaves={leaves}
                                         currentUserRole={effectiveRole}
                                     />
                                 } />

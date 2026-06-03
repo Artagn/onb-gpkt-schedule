@@ -1,10 +1,14 @@
 "use strict";
 /**
  * Firestore Trigger: Leave Balance Update
- * Phase 5: Staff Experience Upgrade - HYBRID MODEL
+ * Phase 5: Staff Experience Upgrade - HYBRID MODEL V4 (Production-Grade Complete)
  *
  * ONLY handles T7/CN (Weekend) work → Balance accumulation
  * Ca Tối is handled by schedulerEngine.ts (generates "Nghỉ bù" schedule items)
+ *
+ * v4.1.0: Added onLeaveDelete trigger to safeguard wallet integrity against direct document deletions.
+ * Synchronized full employee schema fields {id, employeeId} inside all wallet creation paths of onLeaveApproved.
+ * Preserves strict reads-before-writes constraint and robust idempotency utilizing 'deductedFor' target markers.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -30,23 +34,17 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
+exports.onLeaveDelete = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const db = admin.firestore();
-/**
- * Helper: Normalize date string to YYYY-MM-DD format (Vietnam timezone)
- * Handles both "2026-01-10" and "2026-01-09T17:00:00.000Z" formats
- *
- * IMPORTANT: Cloud Functions run in UTC. For "2026-01-09T17:00:00.000Z":
- * - UTC: Jan 9, 17:00
- * - Vietnam (UTC+7): Jan 10, 00:00
- * We need to add 7 hours to get the correct Vietnam date.
- */
+// ========== HELPER: Timezone conversion constants ==========
 const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000; // +7 hours in milliseconds
+/**
+ * Normalizes any ISO or standard string date to Vietnam YYYY-MM-DD
+ */
 const normalizeDateString = (dateInput) => {
     if (dateInput.includes('T')) {
-        // ISO format with time - convert to Vietnam timezone
         const utcDate = new Date(dateInput);
         const vietnamDate = new Date(utcDate.getTime() + VIETNAM_OFFSET_MS);
         const year = vietnamDate.getUTCFullYear();
@@ -54,36 +52,37 @@ const normalizeDateString = (dateInput) => {
         const day = String(vietnamDate.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
-    return dateInput; // Already in YYYY-MM-DD format
+    return dateInput; // Already YYYY-MM-DD
 };
-// ========== HELPER: Get day of week from YYYY-MM-DD string (0=Sun, 6=Sat) ==========
+/**
+ * Get day of week from normalized string (0 = Sunday, 6 = Saturday)
+ */
 const getDayOfWeek = (dateStr) => {
     const [year, month, day] = dateStr.split('-').map(Number);
     const d = new Date(Date.UTC(year, month - 1, day));
     return d.getUTCDay();
 };
-// ========== HELPER: Check if work qualifies for balance (Weekend or Holiday) ==========
-const isWorkEligibleForBalance = async (scheduleData) => {
-    const rawDate = scheduleData.date;
-    const dateStr = normalizeDateString(rawDate);
+/**
+ * Chunk an array into smaller sub-arrays of a specified size
+ */
+const chunkArray = (array, size) => {
+    return Array.from({ length: Math.ceil(array.length / size) }, (_, i) => array.slice(i * size, i * size + size));
+};
+/**
+ * Evaluate if weekend/holiday shift qualifies for leave accumulation
+ */
+const isWorkEligibleForBalance = async (dateStr, shift, holidays, workPeriods) => {
     const dayOfWeek = getDayOfWeek(dateStr);
-    const shift = scheduleData.shift;
-    // Check if it's a holiday first
-    const holidaysSnap = await db.collection("holidays").get();
-    const holidays = holidaysSnap.docs.map((d) => normalizeDateString(d.data().date));
+    // 1. Holiday work always qualifies
     if (holidays.includes(dateStr)) {
-        // Any work on holiday = eligible for balance
         return true;
     }
-    // NOT a weekend → No balance
+    // 2. Weekdays never qualify
     if (dayOfWeek !== 0 && dayOfWeek !== 6)
         return false;
-    // Is a weekend → Check against WorkPeriod standard config
-    const workPeriodsSnap = await db.collection("workPeriods").get();
-    const workPeriods = workPeriodsSnap.docs.map((d) => d.data());
+    // 3. Weekends qualify if shift is outside standard work period config
     const applicable = workPeriods.find((wp) => normalizeDateString(wp.startDate) <= dateStr && normalizeDateString(wp.endDate) >= dateStr);
     if (applicable) {
-        // Map JS dayOfWeek (0=Sun) to WorkPeriod days index (0=Mon, 6=Sun)
         const wpDayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         const dayConfig = applicable.days[wpDayIndex];
         const shiftKey = shift === "Sáng"
@@ -91,150 +90,310 @@ const isWorkEligibleForBalance = async (scheduleData) => {
             : shift === "Chiều"
                 ? "afternoon"
                 : "evening";
-        // If standard config does NOT have this shift → Eligible for balance
         if (!dayConfig[shiftKey])
             return true;
     }
     else {
-        // No WorkPeriod config → Weekend work grants balance by default
-        return true;
+        return true; // Weekend qualifies if no work period configured
     }
     return false;
 };
-// ========== HELPER: Update balance in Firestore ==========
-const updateBalances = async (empIds, amount) => {
-    for (const empId of empIds) {
-        const ref = db.collection("leave_balances").doc(empId);
-        await db.runTransaction(async (t) => {
-            const doc = await t.get(ref);
-            const current = doc.exists ? doc.data().compLeaveAvailable || 0 : 0;
-            const used = doc.exists ? doc.data().compLeaveUsed || 0 : 0;
-            t.set(ref, {
-                id: empId,
-                employeeId: empId,
-                compLeaveAvailable: Math.max(0, current + amount),
-                compLeaveUsed: used,
-                lastUpdated: new Date().toISOString(),
-            }, { merge: true });
-        });
-    }
-};
-// ========== HELPER: Check if employee has approved leave on date/shift ==========
-const hasApprovedLeave = async (empId, date, shift) => {
-    const leavesSnap = await db.collection("leaves")
-        .where("employeeId", "==", empId)
-        .where("date", "==", date)
-        .where("shift", "==", shift)
-        .where("status", "==", "Approved")
-        .get();
-    return !leavesSnap.empty;
-};
-// ========== TRIGGER: onScheduleUpdate (T7/CN/Holiday) ==========
+// ==================== TRIGGER 1: onScheduleUpdate ====================
 exports.onScheduleUpdate = functions.firestore
     .document("schedule/{scheduleId}")
     .onUpdate(async (change, context) => {
+    const scheduleId = context.params.scheduleId;
     try {
         const before = change.before.data();
         const after = change.after.data();
-        const employeeIds = after.employeeIds || [];
-        // Skip if no employees assigned or if it's a Nghỉ bù item
-        if (employeeIds.length === 0 || after.jobId === "JOB_NGHI_BU")
+        // Validate fields to prevent runtime exceptions & infinite retry loops
+        const beforeJobId = before === null || before === void 0 ? void 0 : before.jobId;
+        const afterJobId = after === null || after === void 0 ? void 0 : after.jobId;
+        if (beforeJobId === "JOB_NGHI_BU" || afterJobId === "JOB_NGHI_BU") {
+            functions.logger.info(`[onScheduleUpdate] Skipping Rest shift item ${scheduleId}`);
             return;
-        // CASE A: Pending → Completed → Check if eligible (weekend/holiday)
-        if (before.status !== "Completed" && after.status === "Completed") {
-            const isEligible = await isWorkEligibleForBalance(after);
-            if (isEligible) {
-                // Filter employees who DON'T have approved leave on this date/shift
-                const eligibleEmps = [];
-                for (const empId of employeeIds) {
-                    const hasLeave = await hasApprovedLeave(empId, after.date, after.shift);
-                    if (!hasLeave) {
-                        eligibleEmps.push(empId);
-                    }
-                    else {
-                        console.log(`⏭️ Skipping ${empId} for balance - has approved leave on ${after.date} ${after.shift}`);
-                    }
-                }
-                if (eligibleEmps.length > 0) {
-                    await updateBalances(eligibleEmps, 1);
-                    console.log(`✅ Weekend/Holiday: Granted +1 balance to ${eligibleEmps.length} employees for ${context.params.scheduleId}`);
-                }
-            }
         }
-        // CASE B: Completed → Other (Revert) → Check if was eligible
-        if (before.status === "Completed" && after.status !== "Completed") {
-            const wasEligible = await isWorkEligibleForBalance(before);
-            if (wasEligible) {
-                // Also check for leaves when reverting (only revert for those who got the bonus)
-                const eligibleEmps = [];
-                for (const empId of employeeIds) {
-                    const hasLeave = await hasApprovedLeave(empId, before.date, before.shift);
-                    if (!hasLeave) {
-                        eligibleEmps.push(empId);
-                    }
-                }
-                if (eligibleEmps.length > 0) {
-                    await updateBalances(eligibleEmps, -1);
-                    console.log(`⚠️ Weekend/Holiday: Reverted -1 balance from ${eligibleEmps.length} employees for ${context.params.scheduleId}`);
-                }
-            }
+        const rawDate = (after === null || after === void 0 ? void 0 : after.date) || (before === null || before === void 0 ? void 0 : before.date);
+        const shift = (after === null || after === void 0 ? void 0 : after.shift) || (before === null || before === void 0 ? void 0 : before.shift);
+        if (!rawDate || !shift) {
+            functions.logger.warn(`[onScheduleUpdate] Missing date or shift for item ${scheduleId}. Skipping.`);
+            return;
         }
+        const dateStr = normalizeDateString(rawDate);
+        const beforeEmployeeIds = (before === null || before === void 0 ? void 0 : before.employeeIds) || [];
+        const afterEmployeeIds = (after === null || after === void 0 ? void 0 : after.employeeIds) || [];
+        // Return early if both lists are empty (no personnel assigned previously or currently)
+        if (beforeEmployeeIds.length === 0 && afterEmployeeIds.length === 0) {
+            functions.logger.info(`[onScheduleUpdate] No employees assigned for item ${scheduleId}. Skipping.`);
+            return;
+        }
+        // 1. Fetch config collections ONCE to eliminate N+1 database reads
+        const holidaysSnap = await db.collection("holidays").get();
+        const holidays = holidaysSnap.docs.map((d) => normalizeDateString(d.data().date));
+        const workPeriodsSnap = await db.collection("workPeriods").get();
+        const workPeriods = workPeriodsSnap.docs.map((d) => d.data());
+        // 2. Evaluate balance eligibility
+        const isEligible = await isWorkEligibleForBalance(dateStr, shift, holidays, workPeriods);
+        const beforeCompleted = (before === null || before === void 0 ? void 0 : before.status) === "Completed" && isEligible;
+        const afterCompleted = (after === null || after === void 0 ? void 0 : after.status) === "Completed" && isEligible;
+        // 3. Compute Employee Diff (Grant List vs Revert List)
+        const grantList = [];
+        const revertList = [];
+        if (!beforeCompleted && afterCompleted) {
+            // Schedule changed to Completed -> Grant to all current employees
+            grantList.push(...afterEmployeeIds);
+        }
+        else if (beforeCompleted && !afterCompleted) {
+            // Schedule reverted from Completed -> Revoke from all previous employees
+            revertList.push(...beforeEmployeeIds);
+        }
+        else if (beforeCompleted && afterCompleted) {
+            // Remains Completed -> Grant to added, Revoke from removed employees
+            afterEmployeeIds.forEach((id) => {
+                if (!beforeEmployeeIds.includes(id))
+                    grantList.push(id);
+            });
+            beforeEmployeeIds.forEach((id) => {
+                if (!afterEmployeeIds.includes(id))
+                    revertList.push(id);
+            });
+        }
+        if (grantList.length === 0 && revertList.length === 0) {
+            functions.logger.info(`[onScheduleUpdate] No balance change needed for item ${scheduleId}.`);
+            return;
+        }
+        // 4. Batch fetch approved leaves with chunking mechanism to bypass Firestore 10-element limit
+        const allRelatedEmployees = Array.from(new Set([...grantList, ...revertList]));
+        const approvedLeavesMap = new Map();
+        if (allRelatedEmployees.length > 0) {
+            // Chunk size of 10 guarantees safety on all Firestore SDK environments
+            const employeeChunks = chunkArray(allRelatedEmployees, 10);
+            const leavesPromises = employeeChunks.map((chunk) => db.collection("leaves")
+                .where("date", "==", dateStr)
+                .where("shift", "==", shift)
+                .where("status", "==", "Approved")
+                .where("employeeId", "in", chunk)
+                .get());
+            const leavesResults = await Promise.all(leavesPromises);
+            leavesResults.forEach((snap) => {
+                snap.docs.forEach((doc) => {
+                    approvedLeavesMap.set(doc.data().employeeId, true);
+                });
+            });
+        }
+        // 5. UNIFIED FIRESTORE TRANSACTION: Strict adherence to reads-before-writes constraint
+        const scheduleRef = db.collection("schedule").doc(scheduleId);
+        await db.runTransaction(async (transaction) => {
+            // ==================== PHASE 1: ALL READS ====================
+            // Read latest schedule doc inside transaction to prevent write-skew
+            const scheduleSnap = await transaction.get(scheduleRef);
+            if (!scheduleSnap.exists) {
+                throw new Error(`Schedule document ${scheduleId} not found.`);
+            }
+            const scheduleData = scheduleSnap.data();
+            // Get or initialize idempotency map balanceGranted: { [empId]: boolean }
+            const balanceGranted = scheduleData.balanceGranted || {};
+            // Filter lists using idempotency cờ
+            const finalGrantList = grantList.filter((empId) => {
+                const hasLeave = approvedLeavesMap.has(empId);
+                const alreadyGranted = balanceGranted[empId] === true;
+                return !hasLeave && !alreadyGranted;
+            });
+            const finalRevertList = revertList.filter((empId) => {
+                return balanceGranted[empId] === true;
+            });
+            if (finalGrantList.length === 0 && finalRevertList.length === 0) {
+                functions.logger.info(`[onScheduleUpdate] No balance modifications required after idempotency check for item ${scheduleId}.`);
+                return;
+            }
+            // Batch fetch all leave balances inside transaction PRIOR to writing
+            const allTransactionEmps = Array.from(new Set([...finalGrantList, ...finalRevertList]));
+            const balanceDocPromises = allTransactionEmps.map((empId) => transaction.get(db.collection("leave_balances").doc(empId)));
+            const balanceDocSnaps = await Promise.all(balanceDocPromises);
+            const balanceSnapMap = new Map(allTransactionEmps.map((id, i) => [id, balanceDocSnaps[i]]));
+            // ==================== PHASE 2: ALL WRITES ====================
+            // Grant balances (+1)
+            for (const empId of finalGrantList) {
+                const balanceSnap = balanceSnapMap.get(empId);
+                const current = balanceSnap.exists ? balanceSnap.data().compLeaveAvailable || 0 : 0;
+                const used = balanceSnap.exists ? balanceSnap.data().compLeaveUsed || 0 : 0;
+                transaction.set(db.collection("leave_balances").doc(empId), {
+                    id: empId,
+                    employeeId: empId,
+                    compLeaveAvailable: current + 1,
+                    compLeaveUsed: used,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                balanceGranted[empId] = true;
+            }
+            // Revoke balances (-1)
+            for (const empId of finalRevertList) {
+                const balanceSnap = balanceSnapMap.get(empId);
+                const current = balanceSnap.exists ? balanceSnap.data().compLeaveAvailable || 0 : 0;
+                const used = balanceSnap.exists ? balanceSnap.data().compLeaveUsed || 0 : 0;
+                transaction.set(db.collection("leave_balances").doc(empId), {
+                    id: empId,
+                    employeeId: empId,
+                    compLeaveAvailable: Math.max(0, current - 1),
+                    compLeaveUsed: used,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                balanceGranted[empId] = false;
+            }
+            // Persist the updated idempotency map back to schedule
+            transaction.update(scheduleRef, { balanceGranted });
+            functions.logger.info(`[onScheduleUpdate][Transaction Success] schedule/${scheduleId}: ` +
+                `Granted to [${finalGrantList.join(",") || "none"}], Reverted from [${finalRevertList.join(",") || "none"}]`);
+        });
     }
     catch (error) {
-        console.error(`❌ Error in onScheduleUpdate for schedule/${context.params.scheduleId}:`, error);
-        throw error; // Re-throw to mark function as failed in Firebase Console
+        functions.logger.error(`[onScheduleUpdate] Error in schedule/${scheduleId}:`, error);
+        throw error;
     }
 });
-// ========== TRIGGER: onLeaveApproved (Balance Deduction) ==========
+// ==================== TRIGGER 2: onLeaveApproved ====================
 exports.onLeaveApproved = functions.firestore
     .document("leaves/{leaveId}")
     .onUpdate(async (change, context) => {
+    const leaveId = context.params.leaveId;
     try {
         const before = change.before.data();
         const after = change.after.data();
-        const empId = after.employeeId;
-        const leaveType = after.leaveType || "Compensatory";
+        const beforeEmpId = before === null || before === void 0 ? void 0 : before.employeeId;
+        const afterEmpId = after === null || after === void 0 ? void 0 : after.employeeId;
+        const leaveType = (after === null || after === void 0 ? void 0 : after.leaveType) || (before === null || before === void 0 ? void 0 : before.leaveType) || "Compensatory";
         // Only process Compensatory leave type
         if (leaveType !== "Compensatory")
             return;
-        // CASE A: Approve → Deduct balance
-        if (before.status !== "Approved" && after.status === "Approved") {
-            const ref = db.collection("leave_balances").doc(empId);
-            await db.runTransaction(async (t) => {
-                const doc = await t.get(ref);
-                if (doc.exists) {
-                    const available = doc.data().compLeaveAvailable || 0;
-                    const used = doc.data().compLeaveUsed || 0;
-                    t.update(ref, {
-                        compLeaveAvailable: Math.max(0, available - 1),
-                        compLeaveUsed: used + 1,
-                        lastUpdated: new Date().toISOString(),
-                    });
-                    console.log(`📝 Deducted 1 balance from ${empId} for leave ${context.params.leaveId}`);
-                }
-            });
+        const beforeApproved = (before === null || before === void 0 ? void 0 : before.status) === "Approved";
+        const afterApproved = (after === null || after === void 0 ? void 0 : after.status) === "Approved";
+        // Check if approval status changed OR employee changed on an approved leave (edge case)
+        const empIdChanged = beforeApproved && afterApproved && beforeEmpId !== afterEmpId;
+        const statusChanged = beforeApproved !== afterApproved;
+        if (!statusChanged && !empIdChanged) {
+            // No relevant change detected
+            return;
         }
-        // CASE B: Unapprove → Restore balance
-        if (before.status === "Approved" && after.status !== "Approved") {
-            const ref = db.collection("leave_balances").doc(empId);
-            await db.runTransaction(async (t) => {
-                const doc = await t.get(ref);
-                if (doc.exists) {
-                    const available = doc.data().compLeaveAvailable || 0;
-                    const used = doc.data().compLeaveUsed || 0;
-                    t.update(ref, {
-                        compLeaveAvailable: available + 1,
-                        compLeaveUsed: Math.max(0, used - 1),
-                        lastUpdated: new Date().toISOString(),
-                    });
-                    console.log(`🔄 Restored 1 balance to ${empId} after unapprove ${context.params.leaveId}`);
+        const leaveRef = db.collection("leaves").doc(leaveId);
+        // UNIFIED TRANSACTION: Strict reads-before-writes with robust employeeId shift handling
+        await db.runTransaction(async (transaction) => {
+            // ==================== PHASE 1: ALL READS ====================
+            // Get latest leave doc inside transaction to prevent skew
+            const leaveSnap = await transaction.get(leaveRef);
+            if (!leaveSnap.exists) {
+                throw new Error(`Leave document ${leaveId} not found.`);
+            }
+            const leaveData = leaveSnap.data();
+            // deductedFor stores the employeeId of the person whose balance was actually deducted
+            const deductedFor = leaveData.deductedFor || null;
+            let empIdToDeduct = null;
+            let empIdToRestore = null;
+            if (afterApproved) {
+                if (!deductedFor) {
+                    // Case A: Just approved and not yet deducted
+                    empIdToDeduct = afterEmpId;
                 }
+                else if (deductedFor !== afterEmpId) {
+                    // Case B: Approved but employee changed -> Restore old employee, deduct new
+                    empIdToRestore = deductedFor;
+                    empIdToDeduct = afterEmpId;
+                }
+                // If deductedFor === afterEmpId, it's already processed (idempotent no-op)
+            }
+            else {
+                // Case C: Unapproved
+                if (deductedFor) {
+                    // If previously deducted, restore balance to that specific person
+                    empIdToRestore = deductedFor;
+                }
+            }
+            if (!empIdToDeduct && !empIdToRestore) {
+                functions.logger.info(`[onLeaveApproved] No balance changes required due to idempotency for leave ${leaveId}`);
+                return;
+            }
+            // Fetch balance snapshots PRIOR to writes
+            let deductSnap = null;
+            let restoreSnap = null;
+            if (empIdToDeduct) {
+                deductSnap = await transaction.get(db.collection("leave_balances").doc(empIdToDeduct));
+            }
+            if (empIdToRestore) {
+                restoreSnap = await transaction.get(db.collection("leave_balances").doc(empIdToRestore));
+            }
+            // ==================== PHASE 2: ALL WRITES ====================
+            if (empIdToRestore && restoreSnap) {
+                const current = restoreSnap.exists ? restoreSnap.data().compLeaveAvailable || 0 : 0;
+                const used = restoreSnap.exists ? restoreSnap.data().compLeaveUsed || 0 : 0;
+                transaction.set(db.collection("leave_balances").doc(empIdToRestore), {
+                    id: empIdToRestore,
+                    employeeId: empIdToRestore,
+                    compLeaveAvailable: current + 1,
+                    compLeaveUsed: Math.max(0, used - 1),
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                functions.logger.info(`[onLeaveApproved][Transaction Success] Restored 1 balance to ${empIdToRestore} for leave ${leaveId}`);
+            }
+            if (empIdToDeduct && deductSnap) {
+                const current = deductSnap.exists ? deductSnap.data().compLeaveAvailable || 0 : 0;
+                const used = deductSnap.exists ? deductSnap.data().compLeaveUsed || 0 : 0;
+                transaction.set(db.collection("leave_balances").doc(empIdToDeduct), {
+                    id: empIdToDeduct,
+                    employeeId: empIdToDeduct,
+                    compLeaveAvailable: Math.max(0, current - 1),
+                    compLeaveUsed: used + 1,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+                functions.logger.info(`[onLeaveApproved][Transaction Success] Deducted 1 balance from ${empIdToDeduct} for leave ${leaveId}`);
+            }
+            // Update idempotency state with the employee who actually got deducted
+            transaction.update(leaveRef, {
+                deductedFor: afterApproved ? afterEmpId : null
             });
-        }
+        });
     }
     catch (error) {
-        console.error(`❌ Error in onLeaveApproved for leaves/${context.params.leaveId}:`, error);
-        throw error; // Re-throw to mark function as failed in Firebase Console
+        functions.logger.error(`[onLeaveApproved] Error in leave/${leaveId}:`, error);
+        throw error;
+    }
+});
+// ==================== TRIGGER 3: onLeaveDelete ====================
+exports.onLeaveDelete = functions.firestore
+    .document("leaves/{leaveId}")
+    .onDelete(async (snapshot, context) => {
+    const leaveId = context.params.leaveId;
+    try {
+        const leaveData = snapshot.data();
+        const leaveType = (leaveData === null || leaveData === void 0 ? void 0 : leaveData.leaveType) || "Compensatory";
+        // Only process Compensatory leave type
+        if (leaveType !== "Compensatory")
+            return;
+        // Only restore if the leave was actually Approved and deducted previously
+        const deductedFor = leaveData === null || leaveData === void 0 ? void 0 : leaveData.deductedFor;
+        if (!deductedFor) {
+            functions.logger.info(`[onLeaveDelete] Deleted leave ${leaveId} was not deducted. No balance restoration needed.`);
+            return;
+        }
+        const balanceRef = db.collection("leave_balances").doc(deductedFor);
+        // UNIFIED TRANSACTION: Strict reads-before-writes to restore deducted balance
+        await db.runTransaction(async (transaction) => {
+            // ==================== PHASE 1: ALL READS ====================
+            const balanceSnap = await transaction.get(balanceRef);
+            const current = balanceSnap.exists ? balanceSnap.data().compLeaveAvailable || 0 : 0;
+            const used = balanceSnap.exists ? balanceSnap.data().compLeaveUsed || 0 : 0;
+            // ==================== PHASE 2: ALL WRITES ====================
+            transaction.set(balanceRef, {
+                id: deductedFor,
+                employeeId: deductedFor,
+                compLeaveAvailable: current + 1,
+                compLeaveUsed: Math.max(0, used - 1),
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+            functions.logger.info(`[onLeaveDelete][Transaction Success] Restored 1 balance to ${deductedFor} due to deletion of approved leave ${leaveId}`);
+        });
+    }
+    catch (error) {
+        functions.logger.error(`[onLeaveDelete] Error processing deletion of leave ${leaveId}:`, error);
+        throw error;
     }
 });
 //# sourceMappingURL=onLeaveBalanceUpdate.js.map

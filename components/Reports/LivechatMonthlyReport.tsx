@@ -7,11 +7,12 @@
 import React, { useMemo } from 'react';
 import { MessageCircle, Download, Loader2 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
+import EmptyState from '../common/EmptyState';
 import { useEvaluationPeriodsQuery, useEvaluationsQuery } from '../../hooks/useEvaluationQuery';
 
 import { isDTGroup } from '../../utils/permissions';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval, format } from 'date-fns';
-import { getDifficultyConfig, calcDifficultyConverted } from '../../utils/evaluationHelpers';
+import { getDifficultyConfig, calcDifficultyConverted, getLivechatJobDefaultStandard } from '../../utils/evaluationHelpers';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
@@ -138,7 +139,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
 
                         totalFixedPoints += jobStats.points;
                         const lcData = existingEval.livechatData![job.id] || { standardPerSession: undefined, actual: undefined };
-                        const standardPerSession = lcData.standardPerSession ?? (period?.dtConfig?.livechatStandards?.[job.id] || 35);
+                        const standardPerSession = lcData.standardPerSession ?? (period?.dtConfig?.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name));
                         
                         totalRequests += jobStats.total * standardPerSession;
                         totalConverted += (lcData.actual ?? 0); // "Actual" serves as totalConverted
@@ -164,7 +165,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
                         });
 
                         totalFixedPoints += jobStats.points;
-                        const standardPerSession = period?.dtConfig?.livechatStandards?.[job.id] || 35;
+                        const standardPerSession = period?.dtConfig?.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name);
                         const sessionsForCalc = jobStats.total - jobStats.offHours;
                         totalRequests += sessionsForCalc * standardPerSession;
                     });
@@ -372,9 +373,7 @@ export const LivechatMonthlyReport: React.FC<LivechatMonthlyReportProps> = ({ hi
                                 ))}
                                 {rowData.length === 0 && (
                                     <tr>
-                                        <td colSpan={totalCols} className="border p-8 text-center text-gray-500">
-                                            Không có dữ liệu Livechat cho khoảng thời gian này
-                                        </td>
+                                        <EmptyState colSpan={totalCols} size="sm" title="Không có dữ liệu Livechat cho khoảng thời gian này" />
                                     </tr>
                                 )}
                             </tbody>

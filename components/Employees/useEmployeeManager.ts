@@ -3,7 +3,7 @@ import { Employee, EmployeeRank, Role, Status, TimeFrame } from '../../types';
 import { employeesService } from '../../services/firestoreService';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAddEmployeeMutation, useUpdateEmployeeMutation, useDeleteEmployeeMutation, EMPLOYEE_KEYS } from '../../hooks/useEmployeesQuery';
-import { useData } from '../../context/DataContext';
+import { useConfigData } from '../../context/DataContext';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
@@ -48,7 +48,7 @@ export interface UseEmployeeManagerReturn {
 }
 
 export const useEmployeeManager = (): UseEmployeeManagerReturn => {
-    const { employees } = useData();
+    const { employees } = useConfigData();
     const queryClient = useQueryClient();
 
     // Mutations

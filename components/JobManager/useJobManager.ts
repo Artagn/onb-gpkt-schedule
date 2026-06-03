@@ -220,6 +220,7 @@ export const useJobManager = () => {
                 startTime: editSubForm.startTime || '',
                 endTime: editSubForm.endTime || '',
                 link: editSubForm.link || '',
+                documentLink: editSubForm.documentLink || '',
                 isActive: editSubForm.isActive !== undefined ? editSubForm.isActive : true
             };
             addSubJobMutation.mutate(newSub);
@@ -326,6 +327,7 @@ export const useJobManager = () => {
                                 startTime: String(row[6] || '').trim(),
                                 endTime: String(row[7] || '').trim(),
                                 link: String(row[8] || '').trim(),
+                                documentLink: String(row[9] || '').trim(),
                                 isActive: true
                             });
                         }
@@ -360,8 +362,8 @@ export const useJobManager = () => {
             XLSX.utils.book_append_sheet(wb, ws, "Jobs");
             XLSX.writeFile(wb, "Mau_Cong_Viec.xlsx");
         } else {
-            const headers = ["Tên công việc cha (Phải khớp chính xác)", "Tên hạng mục chi tiết", "Sản phẩm", "Thứ (Thứ 2...)", "Thời lượng", "Buổi (Sáng/Chiều/Tối)", "Bắt đầu (HH:mm)", "Kết thúc (HH:mm)", "Link Meet"];
-            const example = ["Đào tạo A", "Hướng dẫn phần 1", "AMIS", "Thứ 2", "180", "Sáng", "08:30", "11:30", "meet.google.com/abc"];
+            const headers = ["Tên công việc cha (Phải khớp chính xác)", "Tên hạng mục chi tiết", "Sản phẩm", "Thứ (Thứ 2...)", "Thời lượng", "Buổi (Sáng/Chiều/Tối)", "Bắt đầu (HH:mm)", "Kết thúc (HH:mm)", "Link Meet", "Link Tài liệu"];
+            const example = ["Đào tạo A", "Hướng dẫn phần 1", "AMIS", "Thứ 2", "180", "Sáng", "08:30", "11:30", "meet.google.com/abc", "docs.google.com/xyz"];
             const ws = XLSX.utils.aoa_to_sheet([headers, example]);
             XLSX.utils.book_append_sheet(wb, ws, "SubJobs");
             XLSX.writeFile(wb, "Mau_Hang_Muc.xlsx");
@@ -420,7 +422,8 @@ export const useJobManager = () => {
                     (parent?.name.toLowerCase().includes(q)) ||
                     sub.product?.toLowerCase().includes(q) ||
                     sub.day?.toLowerCase().includes(q) ||
-                    sub.link?.toLowerCase().includes(q)
+                    sub.link?.toLowerCase().includes(q) ||
+                    (sub.documentLink?.toLowerCase().includes(q))
                 );
             });
         }

@@ -37,6 +37,8 @@ const CleanupManager: React.FC<Props> = ({ currentUserRole }) => {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [recalculating, setRecalculating] = useState(false);
     const [recalcResult, setRecalcResult] = useState<any>(null);
+    const [migrating, setMigrating] = useState(false);
+    const [migrationResult, setMigrationResult] = useState<any>(null);
 
     // Show job filter only for schedule collection
     const showJobFilter = dataType === COLLECTIONS.SCHEDULE;
@@ -133,6 +135,33 @@ const CleanupManager: React.FC<Props> = ({ currentUserRole }) => {
         }
     };
 
+    const handleRunMigration = async () => {
+        if (!window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn chạy script Migration v4.1.0?\n\nQuá trình này sẽ:\n1. Đồng bộ hóa vai trò của tất cả nhân sự sang bảng tra cứu user_roles.\n2. Quét và chuẩn hóa toàn bộ ngày dạng ISO (chứa chữ "T") trong schedule, leaves, allocations thành định dạng "yyyy-MM-dd".\n\nĐây là bước bắt buộc chuẩn bị cho việc siết Rules bảo mật.')) {
+            return;
+        }
+
+        setMigrating(true);
+        setMigrationResult(null);
+        try {
+            const functions = getFunctions();
+            const migrationFn = httpsCallable(functions, 'runDataMigration');
+            const result = await migrationFn();
+
+            setMigrationResult(result.data as any);
+            toast.success('Đã chạy Migration v4.1.0 thành công!');
+            
+            // Invalidate relevant queries
+            queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
+            queryClient.invalidateQueries({ queryKey: LEAVE_KEYS.all });
+            queryClient.invalidateQueries({ queryKey: ALLOCATION_KEYS.all });
+        } catch (error: any) {
+            console.error(error);
+            toast.error(`Lỗi chạy Migration: ${error.message || error}`);
+        } finally {
+            setMigrating(false);
+        }
+    };
+
     return (
         <div className="bg-white rounded shadow p-4 space-y-4">
             <h2 className="text-xl font-bold flex items-center text-gray-800">
@@ -193,10 +222,41 @@ const CleanupManager: React.FC<Props> = ({ currentUserRole }) => {
                             </table>
                         </div>
                     </div>
-                )}
-            </div>
+            )}
+        </div>
 
-            <hr className="my-4" />
+        {/* RUN MIGRATION SECTION */}
+        <div className="bg-amber-50 border border-amber-200 rounded p-4">
+            <h3 className="text-lg font-bold text-amber-800 flex items-center mb-2">
+                <RefreshCw className="w-5 h-5 mr-2" />
+                Chạy Migration & Đồng bộ RBAC v4.1.0
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">
+                Đồng bộ hóa vai trò nhân sự sang bộ tra cứu `user_roles` (lowercase email Doc IDs) để kích hoạt Firestore Rules mới và chuẩn hóa triệt để định dạng ngày operational về `yyyy-MM-dd` để sửa lỗi Đổi ca.
+            </p>
+            <button
+                onClick={handleRunMigration}
+                disabled={migrating}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded text-sm flex items-center gap-2 shadow disabled:opacity-50 transition-colors"
+            >
+                <RefreshCw className={`w-4 h-4 ${migrating ? 'animate-spin' : ''}`} />
+                {migrating ? 'Đang chạy Migration...' : 'Chạy Migration v4.1.0'}
+            </button>
+
+            {migrationResult && (
+                <div className="mt-4 bg-green-50 border border-green-200 rounded p-3">
+                    <div className="font-bold text-green-800 mb-2">🎉 {migrationResult.message}</div>
+                    <div className="text-xs text-gray-700 space-y-1">
+                        <p>• Đồng bộ thành công mapping: <strong className="text-green-700">{migrationResult.userRolesSynced} nhân viên</strong> sang `user_roles`</p>
+                        <p>• Chuẩn hóa ngày ca trực (schedule): <strong className="text-blue-700">{migrationResult.migrationResults?.schedule} tài liệu</strong></p>
+                        <p>• Chuẩn hóa ngày nghỉ phép (leaves): <strong className="text-purple-700">{migrationResult.migrationResults?.leaves} tài liệu</strong></p>
+                        <p>• Chuẩn hóa ngày chia việc (allocations): <strong className="text-orange-700">{migrationResult.migrationResults?.allocations} tài liệu</strong></p>
+                    </div>
+                </div>
+            )}
+        </div>
+
+        <hr className="my-4" />
 
             {/* FILTERS */}
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4 border p-4 rounded bg-gray-50">

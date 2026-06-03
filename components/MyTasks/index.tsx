@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { LayoutGrid, CalendarRange, ListTodo, Palmtree, Award, CheckCircle2, Filter, Zap, X, Plus, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Role, Status } from '../../types';
 import Reports from '../Reports/index';
@@ -184,7 +184,7 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                                     className="border-none text-sm font-bold text-gray-700 focus:ring-0 p-1 bg-transparent cursor-pointer outline-none"
                                     value={format(fromDate, 'yyyy-MM-dd')}
                                     onChange={(e) => {
-                                        if (e.target.value) setFromDate(new Date(e.target.value));
+                                        if (e.target.value) setFromDate(parseISO(e.target.value));
                                     }}
                                 />
                             </div>
@@ -196,7 +196,7 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                                     className="border-none text-sm font-bold text-gray-700 focus:ring-0 p-1 bg-transparent cursor-pointer outline-none"
                                     value={format(toDate, 'yyyy-MM-dd')}
                                     onChange={(e) => {
-                                        if (e.target.value) setToDate(new Date(e.target.value));
+                                        if (e.target.value) setToDate(parseISO(e.target.value));
                                     }}
                                 />
                             </div>
@@ -265,8 +265,8 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                         <Award className="w-4 h-4 mr-2" /> KPI Cá nhân
                     </button>
                     <button
-                        onClick={() => setActiveTab('market' as any)}
-                        className={`flex items-center px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === ('market' as any) ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        onClick={() => setActiveTab('market')}
+                        className={`flex items-center px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'market' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                     >
                         <ArrowLeftRight className="w-4 h-4 mr-2" /> Đổi lịch
                     </button>
@@ -407,23 +407,33 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                         <p>Vui lòng chọn một nhân viên cụ thể để xem KPI cá nhân.</p>
                     </div>
                 )}
-                {activeTab === ('market' as any) && (
+                {activeTab === 'market' && (
                     <div className="h-[600px] border rounded-lg overflow-hidden">
-                        <SwapMarket currentUser={currentLoggedEmp!} />
+                        {currentLoggedEmp ? (
+                            <SwapMarket currentUser={currentLoggedEmp} />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full bg-white text-slate-500 p-8">
+                                <AlertCircle className="w-12 h-12 text-slate-400 mb-2" />
+                                <p className="font-medium text-slate-600">Không tìm thấy thông tin nhân sự</p>
+                                <p className="text-xs text-slate-400 mt-1">Vui lòng kiểm tra email tài khoản đã được khai báo chính xác trong cấu hình.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
 
             {/* Modals */}
-            <SwapRequestModal
-                isOpen={showSwapModal}
-                onClose={() => setShowSwapModal(false)}
-                currentUser={currentLoggedEmp!}
-                sourceItem={swapSourceItem}
-                employees={employees}
-                schedule={schedule}
-                jobs={jobs}
-            />
+            {currentLoggedEmp && (
+                <SwapRequestModal
+                    isOpen={showSwapModal}
+                    onClose={() => setShowSwapModal(false)}
+                    currentUser={currentLoggedEmp}
+                    sourceItem={swapSourceItem}
+                    employees={employees}
+                    schedule={schedule}
+                    jobs={jobs}
+                />
+            )}
             <TaskModal
                 selectedTask={selectedTask}
                 setSelectedTask={setSelectedTask}
@@ -439,6 +449,7 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                 editingRestItem={editingRestItem}
                 setEditingRestItem={setEditingRestItem}
                 handleSaveRestItem={handleSaveRestItem}
+                isManager={isManager}
             />
 
             <SubJobDetailModal

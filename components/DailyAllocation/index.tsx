@@ -8,24 +8,17 @@ import { Employee, Job, DailyAllocation as DailyAllocationType, ScheduleItem, Le
 import { format, isSameDay } from 'date-fns';
 import { Filter, ChevronDown, ChevronUp, Save, AlertCircle, Calendar } from 'lucide-react';
 import { useDailyAllocation, DatePreset } from './useDailyAllocation';
+import { useConfigData, useRealtimeData } from '../../context/DataContext';
 
 interface Props {
-    employees: Employee[];
-    jobs: Job[];
-    schedule: ScheduleItem[];
-    allocations: DailyAllocationType[];
-    leaves?: LeaveRequest[];
     currentUserRole: Role;
 }
 
 const DailyAllocationView: React.FC<Props> = ({
-    employees,
-    jobs,
-    schedule,
-    allocations,
-    leaves = [],
     currentUserRole
 }) => {
+    const { employees, jobs } = useConfigData();
+    const { schedule, leaves, dailyAllocations: allocations } = useRealtimeData();
     const {
         fromDate,
         setFromDate,

@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicTrainingSchedule = exports.recalculateAllBalances = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
+exports.approveSwapRequest = exports.runDataMigration = exports.onEmployeeWrite = exports.getPublicTrainingSchedule = exports.recalculateAllBalances = exports.onLeaveDelete = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
 const admin = __importStar(require("firebase-admin"));
 // Khởi tạo Admin SDK một lần duy nhất tại đây cho toàn bộ Functions
 if (!admin.apps.length) {
@@ -35,10 +35,18 @@ if (!admin.apps.length) {
 var onLeaveBalanceUpdate_1 = require("./onLeaveBalanceUpdate");
 Object.defineProperty(exports, "onScheduleUpdate", { enumerable: true, get: function () { return onLeaveBalanceUpdate_1.onScheduleUpdate; } });
 Object.defineProperty(exports, "onLeaveApproved", { enumerable: true, get: function () { return onLeaveBalanceUpdate_1.onLeaveApproved; } });
+Object.defineProperty(exports, "onLeaveDelete", { enumerable: true, get: function () { return onLeaveBalanceUpdate_1.onLeaveDelete; } });
 // Admin Tools
 var recalculateBalances_1 = require("./recalculateBalances");
 Object.defineProperty(exports, "recalculateAllBalances", { enumerable: true, get: function () { return recalculateBalances_1.recalculateAllBalances; } });
 // Public APIs
 var getPublicTrainingSchedule_1 = require("./getPublicTrainingSchedule");
 Object.defineProperty(exports, "getPublicTrainingSchedule", { enumerable: true, get: function () { return getPublicTrainingSchedule_1.getPublicTrainingSchedule; } });
+// Phase 6: userRolesSync triggers and runDataMigration script
+var userRolesSync_1 = require("./userRolesSync");
+Object.defineProperty(exports, "onEmployeeWrite", { enumerable: true, get: function () { return userRolesSync_1.onEmployeeWrite; } });
+Object.defineProperty(exports, "runDataMigration", { enumerable: true, get: function () { return userRolesSync_1.runDataMigration; } });
+// Shift Swap Marketplace trigger
+var executeSwap_1 = require("./executeSwap");
+Object.defineProperty(exports, "approveSwapRequest", { enumerable: true, get: function () { return executeSwap_1.approveSwapRequest; } });
 //# sourceMappingURL=index.js.map

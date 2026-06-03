@@ -1,5 +1,6 @@
 
 import React from 'react';
+import EmptyState from '../common/EmptyState';
 
 interface Props {
     data: any[];
@@ -63,7 +64,9 @@ export const PointsTable: React.FC<Props> = ({ data }) => {
                         </tr>
                     ))}
                     {data.length === 0 && (
-                        <tr><td colSpan={6} className="p-8 text-center text-gray-500 italic">Không có dữ liệu phù hợp.</td></tr>
+                        <tr>
+                            <EmptyState colSpan={6} size="sm" title="Không có dữ liệu phù hợp." />
+                        </tr>
                     )}
                 </tbody>
             </table>

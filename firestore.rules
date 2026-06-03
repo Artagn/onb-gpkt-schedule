@@ -2,136 +2,225 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function: Check if user is authenticated
+    // Helper function: Check if user is authenticated and email is present
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && 
+             request.auth.token != null && 
+             request.auth.token.email != null;
     }
     
-    // Helper function: Get user's email
+    // Helper function: Get user's email lowercased safely
     function getUserEmail() {
-      return request.auth.token.email;
+      return isAuthenticated() ? request.auth.token.email.lower() : 'no-email';
+    }
+    
+    // Helper function: Check if user is the Super Admin (safety net bypass)
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserEmail() == 'khainguyendang@gmail.com';
+    }
+    
+    // Helper function: Get user data from user_roles collection safely
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/user_roles/$(getUserEmail()))
+        ? get(/databases/$(database)/documents/user_roles/$(getUserEmail())).data.role
+        : null;
+    }
+    
+    // Helper function: Get user's employeeId safely
+    function getUserEmployeeId() {
+      return exists(/databases/$(database)/documents/user_roles/$(getUserEmail()))
+        ? get(/databases/$(database)/documents/user_roles/$(getUserEmail())).data.employeeId
+        : null;
+    }
+    
+    // Helper function: Check if user is Coordinator/Admin, with Super Admin short-circuit
+    function isCoordinatorOrAdmin() {
+      return isSuperAdmin() || (
+        isAuthenticated() && (
+          getUserRole() == 'Điều phối' || 
+          getUserRole() == 'Quản trị'
+        )
+      );
+    }
+    
+    // ========== USER ROLES MAPPING ==========
+    match /user_roles/{email} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only Cloud Functions can write here!
     }
     
     // ========== EMPLOYEES COLLECTION ==========
     match /employees/{employeeId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); 
+      allow write: if isCoordinatorOrAdmin(); 
     }
     
     // ========== JOBS COLLECTION ==========
     match /jobs/{jobId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
     
     // ========== SUBJOBS COLLECTION ==========
     match /subJobs/{subJobId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
     
     // ========== SCHEDULE COLLECTION ==========
     match /schedule/{scheduleId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Admin/Coordinator have full write access
+      allow write: if isCoordinatorOrAdmin();
+      // Staff can update if they are assigned to this shift and only modifying allowed operational fields
+      allow update: if isAuthenticated() && 
+                    (isSuperAdmin() || (
+                      resource.data.employeeIds.hasAny([getUserEmployeeId()]) &&
+                      request.resource.data.employeeIds == resource.data.employeeIds &&
+                      request.resource.data.date == resource.data.date &&
+                      request.resource.data.shift == resource.data.shift &&
+                      request.resource.data.jobId == resource.data.jobId &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'customerParticipants', 'customerSurveys', 'customerCapable', 'note'])
+                    ));
     }
     
     // ========== LEAVES COLLECTION ==========
     match /leaves/{leaveId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Admin/Coordinator have full write access
+      allow write: if isCoordinatorOrAdmin();
+      // Staff can create their own leave requests in Pending state
+      allow create: if isAuthenticated() && 
+                    request.resource.data.employeeId == getUserEmployeeId() && 
+                    request.resource.data.status == 'Pending';
+      // Staff can update their own leaves while they remain in Pending state
+      allow update: if isAuthenticated() &&
+                    resource.data.employeeId == getUserEmployeeId() &&
+                    resource.data.status == 'Pending' &&
+                    request.resource.data.status == 'Pending' &&
+                    request.resource.data.employeeId == getUserEmployeeId();
+      // Staff can delete their own leave requests in Pending state
+      allow delete: if isAuthenticated() && 
+                    resource.data.employeeId == getUserEmployeeId() && 
+                    resource.data.status == 'Pending';
     }
     
     // ========== ALLOCATIONS COLLECTION ==========
     match /allocations/{allocationId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Admin/Coordinator have full write access
+      allow write: if isCoordinatorOrAdmin();
+      // Staff can update progress for their own allocations
+      allow update: if isAuthenticated() &&
+                    resource.data.employeeId == getUserEmployeeId() &&
+                    request.resource.data.employeeId == getUserEmployeeId() &&
+                    request.resource.data.date == resource.data.date &&
+                    request.resource.data.jobId == resource.data.jobId &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assigned', 'newAssigned', 'completed', 'returnedKD', 'returnedTP']);
     }
     
     // ========== WORK PERIODS COLLECTION ==========
     match /workPeriods/{periodId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
     
     // ========== HOLIDAYS COLLECTION ==========
     match /holidays/{holidayId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
     
     // ========== PATTERNS COLLECTION ==========
     match /patterns/{patternId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
     
     // ========== APP CONFIG ==========
     match /appConfig/{configId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== AUDIT LOGS ==========
-    // All authenticated users can WRITE logs (to record their actions)
-    // Only authenticated users can READ logs (for Admin Dashboard)
     match /audits/{auditId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated(); // All auth users can record logs
     }
-
+    
     // ========== SWAP REQUESTS ==========
     match /swapRequests/{requestId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Admin/Coordinator have full write access
+      allow write: if isCoordinatorOrAdmin();
+      // Staff can create a Pending swap request where they are the requester
+      allow create: if isAuthenticated() && 
+                    request.resource.data.requesterId == getUserEmployeeId() && 
+                    request.resource.data.status == 'Pending';
+      // Staff can update Pending swap requests (Cancel if requester, Reject if target B)
+      allow update: if isAuthenticated() && (
+                    (resource.data.requesterId == getUserEmployeeId() && resource.data.status == 'Pending' && request.resource.data.status == 'Cancelled') ||
+                    (resource.data.targetId == getUserEmployeeId() && resource.data.status == 'Pending' && request.resource.data.status == 'Rejected')
+                  );
     }
-
+    
     // ========== LEAVE BALANCES ==========
     match /leave_balances/{balanceId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isAuthenticated() && (isCoordinatorOrAdmin() || balanceId == getUserEmployeeId());
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== EVALUATION METRICS (Đánh giá tháng) ==========
     match /evaluation_metrics/{metricId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== EVALUATION PERIODS (Đợt đánh giá) ==========
     match /evaluation_periods/{periodId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== EVALUATIONS (Kết quả đánh giá) ==========
     match /evaluations/{evaluationId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== JOB GROUPS (Nhóm công việc) ==========
     match /jobGroups/{groupId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== CARE CAMPAIGNS (Chiến dịch chăm sóc KH) ==========
     match /care_campaigns/{campaignId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
-
+    
     // ========== CARE REPORTS (Báo cáo chăm sóc KH hàng ngày) ==========
     match /care_reports/{reportId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Admin/Coordinator have full write access
+      allow write: if isCoordinatorOrAdmin();
+      // Staff can create their own reports
+      allow create: if isAuthenticated() && 
+                    (isSuperAdmin() || request.resource.data.employeeId == getUserEmployeeId());
+      // Staff can update their own reports
+      allow update: if isAuthenticated() && 
+                    (isSuperAdmin() || (
+                      resource.data.employeeId == getUserEmployeeId() &&
+                      request.resource.data.employeeId == getUserEmployeeId()
+                    ));
     }
-
+    
     // ========== CARE METRICS (Chỉ tiêu chăm sóc KH) ==========
     match /care_metrics/{metricId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isCoordinatorOrAdmin();
     }
   }
 }

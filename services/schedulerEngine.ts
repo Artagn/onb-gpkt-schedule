@@ -171,9 +171,14 @@ const getAverageWeeklyShiftsInTier = (tier: number, activeEmployees: Employee[],
     return totalShifts / tierEmployees.length;
 };
 
-
-
-
+const workedEveningYesterday = (empId: string, day: Date, tempSchedule: ScheduleItem[]): boolean => {
+    const yesterday = addDays(day, -1);
+    return tempSchedule.some(s =>
+        isSameDay(new Date(s.date), yesterday) &&
+        s.shift === 'Tối' &&
+        s.employeeIds.includes(empId)
+    );
+};
 
 // --- MAIN ENGINE ---
 
@@ -192,6 +197,9 @@ export function generateWeeklySchedule({
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i));
     const activeEmployees = employees.filter(e => e.status === Status.Active).sort((a, b) => (a.stt || 9999) - (b.stt || 9999));
 
+    // Calculate deterministic week index since epoch for dynamic rotation tie-breaker
+    const weekIndex = Math.floor(startOfCurrentWeek.getTime() / (7 * 24 * 60 * 60 * 1000));
+
     // 1. PREPARE NEW SCHEDULE (Remove current week's auto-generated items)
     const itemsToDelete = schedule.filter(s => isSameWeek(new Date(s.date), targetDate, { weekStartsOn: 1 }));
     const itemsToDeleteIds = itemsToDelete.map(s => s.id);
@@ -209,6 +217,11 @@ export function generateWeeklySchedule({
 
     // --- SCORING ENGINE ---
     const scoreCandidate = (emp: Employee, job: Job, day: Date, shift: string, tempSchedule: ScheduleItem[]): number => {
+        // Rest Rule: Block Morning or Afternoon shifts if worked Evening shift last night
+        if (workedEveningYesterday(emp.id, day, tempSchedule) && (shift === 'Sáng' || shift === 'Chiều')) {
+            return -9999;
+        }
+
         let score = 100;
 
         // 1. KPI Balance - Monthly
@@ -325,7 +338,12 @@ export function generateWeeklySchedule({
         }).sort((a, b) => {
             const evA = newSchedule.filter(s => s.employeeIds.includes(a.id) && s.shift === 'Tối' && isSameWeek(new Date(s.date), day, { weekStartsOn: 1 })).length;
             const evB = newSchedule.filter(s => s.employeeIds.includes(b.id) && s.shift === 'Tối' && isSameWeek(new Date(s.date), day, { weekStartsOn: 1 })).length;
-            return evA - evB;
+            if (evA !== evB) return evA - evB;
+
+            // Tie-break dynamically based on weekIndex
+            const rotA = ((a.stt || 0) + weekIndex) % activeEmployees.length;
+            const rotB = ((b.stt || 0) + weekIndex) % activeEmployees.length;
+            return rotA - rotB;
         });
 
 
@@ -379,6 +397,10 @@ export function generateWeeklySchedule({
                     if (isBusy(emp.id, day, 'Sáng', newSchedule) || isBusy(emp.id, day, 'Chiều', newSchedule)) return false;
                     if (hasLivechatYesterday(emp.id, day, newSchedule, jobs)) return false;
                     if (hasLivechatOnDay(emp.id, day, newSchedule, jobs)) return false;
+
+                    // Block from Livechat if worked Evening shift last night
+                    if (workedEveningYesterday(emp.id, day, newSchedule)) return false;
+
                     return true;
                 });
 
@@ -413,7 +435,14 @@ export function generateWeeklySchedule({
                         if (a.rank === preferRank && b.rank !== preferRank) return -1;
                         if (b.rank === preferRank && a.rank !== preferRank) return 1;
                     }
-                    return (livechatLoadMap.get(a.id) || 0) - (livechatLoadMap.get(b.id) || 0);
+                    const loadA = livechatLoadMap.get(a.id) || 0;
+                    const loadB = livechatLoadMap.get(b.id) || 0;
+                    if (loadA !== loadB) return loadA - loadB;
+
+                    // Tie-break dynamically based on weekIndex
+                    const rotA = ((a.stt || 0) + weekIndex) % activeEmployees.length;
+                    const rotB = ((b.stt || 0) + weekIndex) % activeEmployees.length;
+                    return rotA - rotB;
                 });
 
                 if (candidates.length > 0) {
@@ -469,7 +498,14 @@ export function generateWeeklySchedule({
                     return true;
                 }).map(emp => ({ emp, score: scoreCandidate(emp, job, day, 'Sáng', newSchedule) }))
                     .filter(c => c.score > -9000)
-                    .sort((a, b) => b.score - a.score);
+                    .sort((a, b) => {
+                        if (b.score !== a.score) return b.score - a.score;
+
+                        // Tie-break dynamically based on weekIndex
+                        const rotA = ((a.emp.stt || 0) + weekIndex) % activeEmployees.length;
+                        const rotB = ((b.emp.stt || 0) + weekIndex) % activeEmployees.length;
+                        return rotA - rotB;
+                    });
 
                 if (candidates.length > 0) {
                     const winner = candidates[0].emp;
@@ -504,7 +540,14 @@ export function generateWeeklySchedule({
             return true;
         }).map(emp => ({ emp, score: scoreCandidate(emp, job, day, slot.shift, newSchedule) }))
             .filter(c => c.score > -9000)
-            .sort((a, b) => b.score - a.score);
+            .sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+
+                // Tie-break dynamically based on weekIndex
+                const rotA = ((a.emp.stt || 0) + weekIndex) % activeEmployees.length;
+                const rotB = ((b.emp.stt || 0) + weekIndex) % activeEmployees.length;
+                return rotA - rotB;
+            });
 
         if (candidates.length > 0) {
             slot.employeeIds.push(candidates[0].emp.id);

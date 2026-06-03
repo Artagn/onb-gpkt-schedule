@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Users, Calendar, CheckSquare, Clock, CalendarDays, AlertTriangle, CheckCircle2, Timer, Filter, Briefcase, Palmtree, ChevronRight, BarChart, BarChart2, ArrowRight, X } from 'lucide-react';
+import { Users, Calendar, CheckSquare, CalendarDays, AlertTriangle, CheckCircle2, Timer, Filter, Briefcase, ChevronRight, BarChart, BarChart2, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useDashboardStats } from './useDashboardStats';
@@ -12,13 +12,13 @@ import StatCard from './StatCard';
 import CombinedWidget from './CombinedWidget';
 import EmptyState from '../common/EmptyState';
 import { ROUTES } from '../../routes';
-import { Status } from '../../types';
+import { Status, User } from '../../types';
 import { useData } from '../../context/DataContext';
 import { useLeaveMutations } from '../../hooks/useLeavesQuery';
 import { useScheduleMutations } from '../../hooks/useSchedulesQuery';
 
 interface Props {
-    user: any;
+    user: User;
 }
 
 const Dashboard: React.FC<Props> = ({ user }) => {

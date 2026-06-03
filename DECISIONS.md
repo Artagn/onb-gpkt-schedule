@@ -133,3 +133,78 @@
     - Thêm dòng **Σ Tổng cộng** và cột **% HT**.
     - **v3.22.3:** Triển khai Summary Cards cho mọi view mode, tích hợp trend indicators (delta %), mở rộng Employee Breakdown cho view Ngày, và tự động xếp hạng (ranking) nhân viên.
 - **Lý do:** Tăng khả năng quan sát (visibility) và hỗ trợ ra quyết định nhanh. Trend indicators giúp nhận diện sớm sự sụt giảm năng suất. Ranking tạo động lực cạnh tranh lành mạnh và giúp quản lý focus vào đúng đối tượng.
+
+## 19. Tích hợp Link Tài liệu vào Hạng mục chi tiết (Sub-Jobs) (v3.22.5)
+- **Vấn đề:** Nhân viên khi xem lịch cá nhân hoặc ca làm việc trên Dashboard cần truy cập nhanh vào tài liệu hướng dẫn nghiệp vụ tương ứng của hạng mục đó (tương tự như link phòng họp Meet).
+- **Quyết định:**
+    - Bổ sung trường `documentLink` (optional string, mặc định là rỗng) vào cấu trúc dữ liệu `SubJob`.
+    - Thêm ô nhập liệu "Link Tài liệu" trên giao diện quản lý hạng mục và hiển thị cột tương ứng trong bảng cấu hình Sub-Jobs.
+    - Cập nhật định dạng Excel Import mẫu (cột thứ 10) để hỗ trợ import hàng loạt link tài liệu.
+    - Hiển thị nút **Link tài liệu** (emerald theme) trên Lịch cá nhân (`FixedScheduleList`), Dashboard (`ScheduleCard`), và modal chi tiết ca làm việc (`SubJobDetailModal`).
+    - **Không** trả về trường này trong API chia sẻ lịch công khai dành cho Khách hàng (`getPublicTrainingSchedule`).
+- **Lý do:** Giúp nhân viên chủ động tiếp cận tài liệu hướng dẫn trực tiếp từ lịch làm việc của mình, tối ưu hóa quy trình làm việc. Việc ẩn link tài liệu ở API public nhằm đảm bảo an toàn bảo mật thông tin nội bộ của MISA/ONB đối với khách hàng bên ngoài.
+
+## 20. Migrate Tailwind CSS sang Local Build-time (v3.22.5)
+- **Vấn đề:** Sử dụng Tailwind CDN runtime tải file `public/tailwindcss.js` (407KB) gây nặng bundle tải, compile CSS ở runtime làm lag CPU và tạo hiện tượng nhấp nháy FOUC khi load trang, mâu thuẫn trực tiếp với mục tiêu PWA offline-first.
+- **Quyết định:**
+    - Cài đặt `tailwindcss@3`, `postcss`, và `autoprefixer` làm devDependencies cục bộ.
+    - Thiết lập file cấu hình `tailwind.config.js` quét toàn bộ thư mục components ở root và `postcss.config.js`.
+    - Xóa file runtime `public/tailwindcss.js` và script liên kết trong `index.html`.
+- **Lý do:** Đưa quá trình biên dịch CSS về build-time, nén và tự động purge sạch các class thừa $\rightarrow$ CSS bundle siêu gọn chỉ còn 78.85KB (gzip 12.02KB). Tiết kiệm hơn 330KB JS tải về, triệt tiêu FOUC, tối ưu hiệu năng PWA offline mượt mà.
+
+## 21. React 19 Context Splitting & Re-render Optimization (v4.0.0)
+- **Vấn đề:** Thay đổi lịch/leave real-time trong God Context `DataContext` gây ra cascade re-renders trên toàn bộ khung layout chính (Sidebar, BottomNav) và các trang cấu hình tĩnh, làm giảm nghiêm trọng tính mượt mà của giao diện.
+- **Quyết định:**
+    - Phân tách God Context thành **4 Context độc lập** chuyên biệt: `ConfigContext`, `RealtimeContext`, `SyncContext`, và `SessionContext`.
+    - Di chuyển auth listener `onAuthStateChanged` trực tiếp vào Provider để gộp chung nguồn cấp dữ liệu login.
+    - Cập nhật các component Layout tiêu dùng hooks chuyên biệt (`useSession()`, `useSyncStatus()`, v.v.) thay vì hook gộp `useData()`.
+- **Lý do:** Cách ly hoàn toàn re-render rò rỉ khi nhận Firestore updates. Lịch cập nhật real-time chỉ phân phối về các bảng phân phối ca trực, đưa re-render tại thanh điều hướng và menu chính về con số 0 tuyệt đối.
+
+## 22. Firestore Service & Bulk Sync Optimizations (v4.0.0)
+- **Vấn đề:**
+    1. Auto-schedule Apply ghi đè toàn bộ lịch sử lịch trực (`~1200` items) về Firestore trên mỗi lần chạy gây cạn kiệt free writes quota và mất tính nguyên tử (atomicity) do parallel chunking `Promise.all` khi có batch lỗi.
+    2. Real-time stream Zod parsing `safeParse` chạy lại toàn bộ mảng tài liệu trên mỗi update làm block main thread trên mobile.
+    3. Firebase Hosting CDN cache bị bỏ qua hoàn toàn do frontend gọi trực tiếp URL GCF.
+    4. Factory Reset bỏ sót 3 collections quan trọng.
+- **Quyết định:**
+    - **Diff 3 chiều client-side:** Chỉ tính toán lưu các bản ghi mới/sửa đổi (`toUpsert`) và xóa bản ghi rác lệch tuần (`toDelete`), giúp giảm >95% lượng Firestore writes và gộp trọn vẹn trong 1 batch nguyên tử (< 500).
+    - **Sequential Chunking Fallback:** Chuyển `saveCollection` và `deleteBatch` sang chạy batch tuần tự (`for-of` loop await) để đảm bảo fail-fast kiểm soát lỗi.
+    - **Zod parsedCache & docChanges:** Dùng `snapshot.docChanges()` để chỉ validate Zod tài liệu thay đổi, map trả dữ liệu đầy đủ tốc độ $O(1)$.
+    - **Hosting CDN Rewrite:** Khai báo rewrite trong `firebase.json` và gọi API tương đối từ frontend để kích hoạt CDN thực tế.
+    - **Factory Reset Expansion:** Bổ sung `leave_balances`, `swapRequests`, và `jobGroups` vào `wipeAllCollections`.
+- **Lý do:** Tối ưu hóa triệt để chi phí Firestore reads/writes, tăng tốc độ xử lý client-side lên $O(1)$, và bảo vệ tuyệt đối tính nguyên tử dữ liệu.
+
+## 23. Cloud Function approveSwapRequest & Secure firestore.rules RBAC Overhaul (v4.1.0)
+- **Vấn đề:**
+    1. Firestore Rules mở toang `allow write: if isAuthenticated()`, tạo ra lỗ hổng bảo mật P0 lớn.
+    2. Giao dịch đổi ca (Shift Swap Marketplace) chạy hoàn toàn ở phía client, dẫn đến nguy cơ xung đột dữ liệu (race condition) và lỗi phân quyền.
+    3. Định dạng ngày bất nhất (lúc ghi `.toISOString()`, lúc ghi `'yyyy-MM-dd'`) khiến thuật toán Smart Swap hoạt động bất nhất, trả về 0 kết quả một cách âm thầm (silent failure).
+- **Quyết định:**
+    - **Siết chặt Rules RBAC:** Sử dụng collection `/user_roles` làm bảng tra cứu trung gian (lowercased email làm Document ID) để gán vai trò (`employeeId`, `role`). Siết Rules chặt chẽ cho tất cả các collections.
+    - **Thiết lập Super Admin Bypass:** Hardcode cơ chế short-circuit `isSuperAdmin() || (...)` tại Rules. Khi Super Admin `khainguyendang@gmail.com` truy cập, Rules sẽ ngắt sớm và bỏ qua truy vấn cơ sở dữ liệu `getUserRole()`, tránh bị lock out hoàn toàn nếu mapping rỗng hoặc bị lỗi.
+    - **Server-Side Transaction Swap:** Di chuyển toàn bộ logic hoán đổi ca trực lên HTTPS Callable Cloud Function `approveSwapRequest` chạy trong transaction an toàn, phân quyền đồng nhất bằng cách tra cứu `/user_roles`.
+    - **Chuẩn hóa định dạng ngày:** Thay thế toàn bộ `.toISOString()` ở phía frontend thành `'yyyy-MM-dd'` để đảm bảo 100% tính nhất quán.
+    - **Idempotent Migration Panel:** Tạo Cloud Function `runDataMigration` (được bảo vệ chỉ cho Super Admin gọi, timeout 540 giây) để đồng bộ hóa tài khoản hàng loạt và chuyển đổi các ngày ISO cũ sang định dạng mới. Tích hợp nút bấm trong Cleanup Manager.
+- **Lý do:** Đóng hoàn toàn lỗ hổng bảo mật P0, đảm bảo tính nguyên tử tuyệt đối cho các giao dịch hoán đổi lịch trực, và loại bỏ triệt để lỗi logic so sánh ngày.
+
+## 24. React Rules of Hooks & Dependency Optimizations (v4.4.6)
+- **Vấn đề:** 
+    1. Hàm `useCountUp` trong `StatCard.tsx` được gọi sau điều kiện ternary, vi phạm nghiêm trọng Rules of Hooks của React (gây crash nếu thuộc tính thay đổi động).
+    2. Hàm helper `getSubJobs` trong Dashboard được khởi tạo lại ở mỗi render do phụ thuộc vào đối tượng `now` Date cập nhật liên tục theo từng phút, làm mất hiệu năng cache `useMemo` của `categorizedSchedule`.
+- **Quyết định:**
+    - **Gọi Unconditional Hook:** Chuyển `useCountUp` lên gọi vô điều kiện ở mức top-level của StatCard, sau đó áp dụng ternary gán giá trị sau.
+    - **Tách Biến Primitive cho Dependency:** Trích xuất `now.getDay()` thành biến nguyên thủy `currentDayOfWeek` và gán làm dependency duy nhất của `getSubJobs`.
+- **Lý do:** Đảm bảo tuân thủ 100% đặc tả kỹ thuật của React Hooks và triệt tiêu hoàn toàn re-render/re-compute thừa thãi theo phút của Dashboard.
+
+## 25. Timezone Solidification, Atomic Rollbacks & O(1) busyMap Set (v4.4.7)
+- **Vấn đề:**
+    1. Lỗi dịch múi giờ P0 do sử dụng `new Date(yyyy-MM-dd)` (UTC midnight) trong vòng lặp so sánh tuần (`isSameWeek`) và ngày khiến toDelete/clearWeek chọn sai ngày hoặc xóa nhầm/sót lịch ở biên Thứ Hai/Chủ Nhật.
+    2. `applySchedule` chạy `Promise.all` song song giữa xóa và ghi mới, đồng thời cập nhật cache TanStack Query trước khi DB hoàn tất. Nếu ghi lỗi hoặc timeout, cache sẽ hiển thị lịch ảo lệch DB, hoặc tệ hơn, tuần trực bị xóa trắng hoàn toàn.
+    3. Bộ lọc bận `checkBusy` trong DailyAllocation lặp quét mảng $O(N \times (S+L))$ liên tục gây nghẽn CPU trên mobile.
+- **Quyết định:**
+    - **Chuẩn hóa parseISO:** Thay thế 10+ vị trí parse ngày-tháng sang `parseISO` địa phương.
+    - **Sequentially Atomic Writes (Upsert-first):** Thiết lập tiến trình ghi tuần tự: Ghi lịch mới (`saveAll`) thành công mới tiến hành dọn lịch cũ (`deleteBatch`).
+    - **Selective Cache Rollback:** Nếu ghi thất bại, tự động khôi phục cache về trạng thái snapshot cũ. Nếu ghi mới thành công nhưng dọn lịch cũ lỗi, giữ nguyên cache và kích hoạt Toast yêu cầu tải lại để real-time listener tự động stream hợp nhất mới+cũ.
+    - **Gộp SaveAll cho pasteCell:** Thay vì lặp ghi đơn lẻ, gộp toàn bộ ca paste và ca nghỉ bù tự sinh vào 1 batch ghi duy nhất (`saveAll`).
+    - **Set-based busyMap O(1):** So khớp chuỗi `'yyyy-MM-dd'` trực tiếp và lưu các cặp `empId_shift` bận vào một `Set` duy nhất qua `useMemo`, đưa tốc độ kiểm tra bận về $O(1)$.
+- **Lý do:** Bảo vệ tuyệt đối tính nguyên thủy và an toàn dữ liệu, chống thất thoát hoặc trống lịch, và tối ưu hóa hiệu năng tối đa cho phân hệ Điều phối.

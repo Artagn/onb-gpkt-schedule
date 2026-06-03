@@ -171,6 +171,18 @@ const FixedScheduleList: React.FC<Props> = ({
                                                                 Link họp
                                                             </a>
                                                         )}
+                                                        {sub.documentLink && (
+                                                            <a
+                                                                href={sub.documentLink}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="flex items-center text-[10px] text-emerald-600 hover:text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 transition-colors"
+                                                            >
+                                                                <ExternalLink className="w-3 h-3 mr-1" />
+                                                                Link tài liệu
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}

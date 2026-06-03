@@ -19,7 +19,7 @@ import { auth } from '../../services/firebaseConfig';
 import { isDTGroup } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
-import { getDifficultyConfig, calcDifficultyConverted } from '../../utils/evaluationHelpers';
+import { getDifficultyConfig, calcDifficultyConverted, getLivechatJobDefaultStandard } from '../../utils/evaluationHelpers';
 
 interface WorkPointsTableProps {
     openPeriod: EvaluationPeriod;
@@ -188,7 +188,7 @@ const WorkPointsTable: React.FC<WorkPointsTableProps> = ({ openPeriod, employeeI
                 totalFixedPoints += stats.points;
                 
                 const lcData = existingEval.livechatData[job.id] || { standardPerSession: undefined, actual: undefined };
-                const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig.livechatStandards?.[job.id] || 35);
+                const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name));
                 const actual = lcData.actual ?? 0;
 
                 const rowRequests = stats.total * standardPerSession;
@@ -204,7 +204,7 @@ const WorkPointsTable: React.FC<WorkPointsTableProps> = ({ openPeriod, employeeI
             totalFixedPoints += stats.points;
 
             // Calculate total requests
-            const standardPerSession = openPeriod?.dtConfig.livechatStandards?.[job.id] || 35;
+            const standardPerSession = openPeriod?.dtConfig.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name);
             const sessionsForCalc = stats.total - stats.offHours;
             totalRequests += sessionsForCalc * standardPerSession;
         });

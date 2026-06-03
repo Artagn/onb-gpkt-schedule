@@ -3,6 +3,55 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.7] - 2026-06-02 🧭 Dashboard & Coordination Solidification
+**Summary:** Đồng bộ hóa múi giờ an toàn toàn diện (parseISO), khắc phục vi phạm React Rules of Hooks, củng cố tính atomicity cho các tác vụ lưu và copy-paste lịch, tối ưu hiệu năng O(1) busyMap và làm sạch giao diện hiển thị phiên bản.
+
+### Added
+- **O(1) busyMap:** Tối ưu hóa bộ lọc bận `checkBusy` trong DailyAllocation sang Set-based O(1) lookup dùng so khớp chuỗi trực tiếp, loại bỏ hàng trăm Date parsing và scan mảng dư thừa.
+- **Optimistic Cache Rollback:** Bổ sung cơ chế rollback cache an toàn cho `applySchedule` tránh cache-DB drift khi ghi lỗi, kết hợp real-time listener tự động stream đồng bộ.
+
+### Fixed
+- **Timezone Solidification:** Thay thế toàn bộ `new Date` parse date-only thành `parseISO` ở 10+ vị trí, dứt điểm lỗi tính sai logic tuần (`isSameWeek`) ở biên Chủ Nhật/Thứ Hai.
+- **Rules of Hooks:** Sửa lỗi gọi hook có điều kiện `useCountUp` trong `StatCard` gây nguy cơ crash.
+- **Atomic Writes:** Tái cấu hình `applySchedule` tuần tự (Upsert trước, Delete sau) và chuyển đổi `pasteCell` sang `saveAll` batch ghi nguyên tử duy nhất, ngăn ngừa rủi ro mất lịch.
+- **Version Bump:** Nâng cấp đồng bộ số phiên bản hiển thị sang v4.4.7 ở Sidebar, package.json và vite.config.ts.
+
+---
+
+## [4.1.0] - 2026-06-02 🛡️ Cloud Function approveSwapRequest & Secure firestore.rules RBAC Overhaul
+**Summary:** Chuyển đổi logic duyệt Đổi lịch sang Cloud Function (asia-southeast1) an toàn qua giao dịch atomic, đồng thời siết chặt 100% Rules bảo mật Firestore qua bảng tra cứu user_roles có lối thoát Super Admin và chuẩn hóa date format operational.
+
+### Added
+- **Cloud Functions:** Tạo HTTPS Callable Cloud Function `approveSwapRequest` sử dụng giao dịch transaction reads-before-writes đồng nhất phân quyền với Rules.
+- **Cloud Functions:** Tạo trigger `onEmployeeWrite` tự động đồng bộ hóa vai trò của nhân sự sang `/user_roles` và callable function `runDataMigration` để đồng bộ / chuẩn hóa dữ liệu hàng loạt.
+- **Firestore Rules:** Siết chặt Rules bảo mật RBAC null-safe với hardcoded Super Admin short-circuit bypass (`isSuperAdmin()`) đảm bảo an toàn tuyệt đối.
+- **Admin Panel:** Tích hợp nút bấm "Chạy Migration v4.1.0" trong Cleanup Manager dành riêng cho Super Admin.
+
+### Fixed
+- **Smart Swap Date Inconsistency:** Chuẩn hóa toàn bộ ngày ghi thủ công ở frontend từ `.toISOString()` sang định dạng chuỗi `'yyyy-MM-dd'` sạch sẽ, giải quyết triệt để lỗi logic Smart Swap.
+- **App Entry Bug:** Sửa lỗi undeclared call của `setUser` trong `App.tsx`.
+
+---
+
+## [3.22.5] - 2026-05-26 🚀 Add Document Link to Sub-Jobs
+**Summary:** Bổ sung trường nhập Link tài liệu vào cấu hình Hạng mục chi tiết (Sub-Jobs) và hiển thị cho nhân viên khi xem lịch cá nhân, dashboard, và chi tiết lịch làm việc.
+
+### Added
+- **SubJob Models:** Thêm trường `documentLink` vào `SubJob` interface và validation Zod schema.
+- **Job Configuration:** Bổ sung ô nhập liệu "Link Tài liệu" vào form sửa SubJob, hiển thị cột trong bảng hạng mục chi tiết.
+- **Excel Template:** Thêm cột "Link Tài liệu" (cột 10) trong file import mẫu Excel và hỗ trợ import.
+- **Employee Views:** Hiển thị nút "Link tài liệu" (emerald) trên lịch cá nhân (`FixedScheduleList`), modal chi tiết (`SubJobDetailModal`) và Dashboard (`ScheduleCard`).
+
+---
+
+## [3.22.4] - 2026-05-22 📊 Customer Care Stats Fixes
+**Summary:** Sửa lỗi NV ngưng hoạt động hiển thị trong bảng. Sửa công thức mẫu số Tiến độ chiến dịch lấy tổng targets toàn phòng thay vì max. Cải thiện UX bảng Thống kê với sticky columns và color-coded groups.
+
+### Fixed
+- **Customer Care Reports:** Loại bỏ nhân viên ngưng hoạt động khỏi bảng thống kê và tính tổng.
+- **Customer Care Campaigns:** Sửa công thức tính tổng targets theo tuần.
+- **Customer Care Dashboard:** Thêm sticky columns và màu phân nhóm cho các bảng thống kê.
+
 ---
 
 ## [3.22.3] - 2026-05-14 🐛 Customer Care Input Form Fixes

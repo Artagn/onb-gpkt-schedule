@@ -65,7 +65,7 @@ const LeaveManager: React.FC<Props> = ({
                                     if (e.target.value) {
                                         setEditingAutoLeave({
                                             ...editingAutoLeave,
-                                            date: new Date(e.target.value).toISOString()
+                                            date: e.target.value
                                         });
                                     }
                                 }}

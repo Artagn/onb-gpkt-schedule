@@ -1,6 +1,6 @@
 import React from 'react';
 import { RefreshCcw } from 'lucide-react';
-import { format } from 'date-fns';
+import EmptyState from '../common/EmptyState';
 
 interface Props {
     data: any[];
@@ -12,7 +12,6 @@ export const LeaveSwapTable: React.FC<Props> = ({ data }) => {
             <table className="min-w-full divide-y divide-gray-200 border">
                 <thead className="bg-gray-50">
                     <tr>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày đăng ký</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nhân viên</th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày nghỉ cũ</th>
                         <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày nghỉ bù (Mới)</th>
@@ -24,20 +23,11 @@ export const LeaveSwapTable: React.FC<Props> = ({ data }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                     {data.length === 0 ? (
                         <tr>
-                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
-                                Không có dữ liệu đổi ngày nghỉ bù.
-                            </td>
+                            <EmptyState colSpan={6} size="sm" title="Không có dữ liệu đổi ngày nghỉ bù." />
                         </tr>
                     ) : (
                         data.map((item) => (
                             <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">
-                                    {/* Assuming ID has timestamp or we just use date */}
-                                    {/* Leaves don't have createdAt, so we can't show registration date properly unless we parse ID or add it. 
-                                        For now, we just show the date of the leave relative to... 
-                                        Actually let's just show '-' if unknown. */}
-                                    -
-                                </td>
                                 <td className="px-3 py-2 text-sm font-medium text-blue-700">
                                     {item.employeeName}
                                 </td>

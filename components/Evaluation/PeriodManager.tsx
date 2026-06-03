@@ -10,6 +10,7 @@ import { EvaluationPeriod } from '../../types';
 import { useData } from '../../context/DataContext';
 import { auth } from '../../services/firebaseConfig';
 import toast from 'react-hot-toast';
+import { getLivechatJobDefaultStandard } from '../../utils/evaluationHelpers';
 
 const STATUS_CONFIG = {
     draft: { label: 'Nháp', color: 'bg-gray-100 text-gray-600', icon: Edit2 },
@@ -358,7 +359,7 @@ export default function PeriodManager() {
                                                             <span className="flex-1 text-gray-700">{job.name}</span>
                                                             <input
                                                                 type="number"
-                                                                placeholder="35"
+                                                                placeholder={getLivechatJobDefaultStandard(job.name).toString()}
                                                                 value={editData.dtConfig?.livechatStandards?.[job.id] || ''}
                                                                 onChange={e => setEditData({
                                                                     ...editData,
@@ -372,7 +373,7 @@ export default function PeriodManager() {
                                                                 })}
                                                                 className="input-text text-xs w-20 text-right"
                                                             />
-                                                            <span className="text-gray-500 w-16">điểm/buổi</span>
+                                                            <span className="text-gray-500 w-16">TC/buổi</span>
                                                         </div>
                                                     ))
                                                 )}

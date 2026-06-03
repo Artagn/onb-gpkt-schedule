@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Palmtree, Clock, CheckCircle2, Calendar, X, ChevronRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { LeaveRequest, ScheduleItem, Employee, Job } from '../../types';
 import { useLeaveMutations } from '../../hooks/useLeavesQuery';
@@ -145,7 +145,7 @@ const CombinedWidget: React.FC<CombinedWidgetProps> = ({
                                                     <div className="text-sm font-bold text-gray-800">{job?.name}</div>
                                                     <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                         <Calendar className="w-3 h-3" />
-                                                        {format(new Date(item.date), 'dd/MM/yyyy')} • <span className={`font-medium ${item.shift === 'Tối' ? 'text-indigo-600' : 'text-orange-600'}`}>{item.shift}</span>
+                                                        {format(parseISO(item.date), 'dd/MM/yyyy')} • <span className={`font-medium ${item.shift === 'Tối' ? 'text-indigo-600' : 'text-orange-600'}`}>{item.shift}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -206,7 +206,7 @@ const LeaveItem = ({ leave, employees, isManager, leaveMutations }: any) => {
                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{leave.shift}</span>
             </div>
             <div className="text-xs text-gray-600 mb-1">
-                {format(new Date(leave.date), 'dd/MM/yyyy')}
+                {format(parseISO(leave.date), 'dd/MM/yyyy')}
             </div>
             <div className="text-xs text-gray-500 italic bg-slate-50 p-1.5 rounded">
                 "{leave.reason}"

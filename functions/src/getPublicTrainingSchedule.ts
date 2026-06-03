@@ -8,6 +8,11 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Global warm in-memory cache for subsequent requests when CDN cache expires or is bypassed
+let cachedResponse: any = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache duration
+
 export const getPublicTrainingSchedule = functions
     .region('asia-southeast1')
     .https.onRequest(async (req, res) => {
@@ -18,6 +23,16 @@ export const getPublicTrainingSchedule = functions
         
         if (req.method === 'OPTIONS') {
             res.status(204).send('');
+            return;
+        }
+
+        // Return warm memory cache if available and fresh
+        const now = Date.now();
+        if (cachedResponse && (now - lastCacheTime < CACHE_DURATION)) {
+            res.status(200).json({
+                success: true,
+                data: cachedResponse
+            });
             return;
         }
 
@@ -59,27 +74,43 @@ export const getPublicTrainingSchedule = functions
                 });
             });
 
-            // Lấy Holidays và WorkPeriods để xử lý hiển thị nghỉ lễ
+            // Lấy Holidays và WorkPeriods để xử lý hiển thị nghỉ lễ (with selective projections)
             const holidaysSnapshot = await db.collection('holidays').get();
             const holidays: any[] = [];
             holidaysSnapshot.forEach(doc => {
-                holidays.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                holidays.push({ 
+                    id: doc.id, 
+                    date: data.date, 
+                    name: data.name 
+                });
             });
 
             const workPeriodsSnapshot = await db.collection('workPeriods').get();
             const workPeriods: any[] = [];
             workPeriodsSnapshot.forEach(doc => {
-                workPeriods.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                workPeriods.push({ 
+                    id: doc.id, 
+                    startDate: data.startDate, 
+                    endDate: data.endDate,
+                    days: data.days,
+                    title: data.title
+                });
             });
+
+            // Update global cache
+            cachedResponse = {
+                jobs,
+                subJobs,
+                holidays,
+                workPeriods
+            };
+            lastCacheTime = now;
 
             res.status(200).json({
                 success: true,
-                data: {
-                    jobs,
-                    subJobs,
-                    holidays,
-                    workPeriods
-                }
+                data: cachedResponse
             });
         } catch (error) {
             console.error("Error fetching public schedule:", error);

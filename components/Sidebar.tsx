@@ -1,10 +1,10 @@
 import React from 'react';
 import { LayoutDashboard, Users, Briefcase, Calendar, CheckSquare, BarChart2, CalendarDays, HelpCircle, CalendarSearch, X, UserCheck, ChevronLeft, ChevronRight, CalendarRange, Sliders, LogOut, ClipboardList, Headphones } from 'lucide-react';
 import { Role } from '../types';
-
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSmoothNavigate } from '../hooks/useSmoothNavigate';
 import { ROUTES } from '../routes';
+import { useSession, useSyncStatus } from '../context/DataContext';
 
 interface SidebarProps {
     currentUserRole: Role;
@@ -12,17 +12,12 @@ interface SidebarProps {
     onClose: () => void; // Mobile close handler
     isCollapsed: boolean;
     setIsCollapsed: (v: boolean) => void;
-    user?: any;
-    isOnline?: boolean;
-    lastSynced?: Date | null;
     onLogout?: () => void;
-
-    // View Mode
-    viewRole?: Role | null;
-    setViewRole?: (role: Role | null) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isCollapsed, setIsCollapsed, user, isOnline, lastSynced, onLogout, viewRole, setViewRole }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isCollapsed, setIsCollapsed, onLogout }) => {
+    const { user, viewRole, setViewRole } = useSession();
+    const { isOnline, lastSynced } = useSyncStatus();
     // const navigate = useNavigate(); // OLD
     const navigate = useSmoothNavigate(); // NEW: View Transitions
     const location = useLocation();
@@ -75,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isC
                             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent">
                                 ONB GPKT
                             </h1>
-                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v3.22.3</p>
+                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v4.4.7</p>
                         </div>
                     )}
                     {isCollapsed && (

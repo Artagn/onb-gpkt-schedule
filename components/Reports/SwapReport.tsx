@@ -1,7 +1,8 @@
 import React from 'react';
 import { ArrowLeftRight, CheckCircle2, XCircle, Ban, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { SwapRequest } from '../../types';
+import EmptyState from '../common/EmptyState';
 
 interface SummaryProps {
     stats: {
@@ -91,9 +92,7 @@ export const SwapTable: React.FC<TableProps> = ({ data }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                     {data.length === 0 ? (
                         <tr>
-                            <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
-                                Không có dữ liệu
-                            </td>
+                            <EmptyState colSpan={7} size="sm" title="Không có dữ liệu đổi lịch" />
                         </tr>
                     ) : (
                         data.map((item) => (
@@ -112,7 +111,7 @@ export const SwapTable: React.FC<TableProps> = ({ data }) => {
                                     <ArrowLeftRight className="w-4 h-4 mx-auto" />
                                 </td>
                                 <td className="px-3 py-2 text-sm text-center">
-                                    <div className="text-xs font-bold text-gray-700">{format(new Date(item.targetDate), 'dd/MM')} ({item.targetShift})</div>
+                                    <div className="text-xs font-bold text-gray-700">{format(parseISO(item.targetDate), 'dd/MM')} ({item.targetShift})</div>
                                     <div className="text-[10px] text-gray-500 truncate max-w-[150px] mx-auto bg-gray-50 rounded px-1" title={item.targetJobName}>{item.targetJobName}</div>
                                 </td>
                                 <td className="px-3 py-2 text-sm font-medium text-purple-700">

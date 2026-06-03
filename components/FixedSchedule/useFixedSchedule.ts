@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { startOfWeek, addDays, isSameDay, isSameWeek, isSameMonth, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, startOfDay, endOfDay, getDay, format } from 'date-fns';
+import { startOfWeek, addDays, isSameDay, isSameWeek, isSameMonth, subDays, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, startOfDay, endOfDay, getDay, format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { scheduleService, patternsService, leavesService, saveCollection, deleteBatch, COLLECTIONS, auditService } from '../../services/firestoreService';
@@ -65,7 +65,8 @@ export const useFixedSchedule = (
     // Week Lock
     const [unlockedWeeks, setUnlockedWeeks] = useState<string[]>(() => {
         try {
-            return JSON.parse(localStorage.getItem('unlockedWeeks') || '[]');
+            const parsed = JSON.parse(localStorage.getItem('unlockedWeeks') || '[]');
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
             console.error("Error parsing unlockedWeeks:", e);
             return [];
@@ -83,7 +84,7 @@ export const useFixedSchedule = (
 
         schedule.forEach(item => {
             if (item.jobId === 'JOB_NGHI_BU') return;
-            const itemDate = new Date(item.date);
+            const itemDate = parseISO(item.date);
             const job = jobs.find(j => j.id === item.jobId);
             if (!job) return;
 
@@ -132,9 +133,9 @@ export const useFixedSchedule = (
     };
 
     const isWorkShiftActive = (date: Date, shift: string): { isActive: boolean, reason?: string } => {
-        const holiday = holidays.find(h => isSameDay(new Date(h.date), date));
+        const holiday = holidays.find(h => isSameDay(parseISO(h.date), date));
         if (holiday) return { isActive: false, reason: `Nghỉ lễ: ${holiday.name}` };
-        const period = workPeriods.find(p => isWithinInterval(date, { start: startOfDay(new Date(p.startDate)), end: endOfDay(new Date(p.endDate)) }));
+        const period = workPeriods.find(p => isWithinInterval(date, { start: startOfDay(parseISO(p.startDate)), end: endOfDay(parseISO(p.endDate)) }));
         if (!period) return { isActive: true };
         let dayIndex = date.getDay() - 1;
         if (dayIndex === -1) dayIndex = 6;
@@ -149,7 +150,7 @@ export const useFixedSchedule = (
         const nextDay = addDays(eveningDate, 1);
         return {
             id: `rest_${empId}_${nextDay.getTime()}_${Math.random()}`,
-            date: nextDay.toISOString(),
+            date: format(nextDay, 'yyyy-MM-dd'),
             shift: 'Sáng',
             jobId: 'JOB_NGHI_BU',
             employeeIds: [empId],
@@ -167,7 +168,7 @@ export const useFixedSchedule = (
         const weekEnd = addDays(weekStart, 6);
 
         schedule.forEach(item => {
-            const itemDate = new Date(item.date);
+            const itemDate = parseISO(item.date);
             if (isWithinInterval(itemDate, { start: weekStart, end: weekEnd })) {
                 const dateKey = format(itemDate, 'yyyy-MM-dd');
                 item.employeeIds.forEach(empId => {
@@ -183,7 +184,7 @@ export const useFixedSchedule = (
     const leaveMap = useMemo(() => {
         const map = new Map<string, LeaveRequest>();
         leaves.forEach(l => {
-            const key = `${format(new Date(l.date), 'yyyy-MM-dd')}_${l.shift}_${l.employeeId}`;
+            const key = `${l.date}_${l.shift}_${l.employeeId}`;
             if (l.status === 'Approved' || l.status === 'Pending') {
                 map.set(key, l);
             }
@@ -210,21 +211,22 @@ export const useFixedSchedule = (
             return;
         }
 
-        const scheduleToDelete = schedule.filter(s => isSameWeek(new Date(s.date), selectedDate, { weekStartsOn: 1 }));
+        const scheduleToDelete = schedule.filter(s => isSameWeek(parseISO(s.date), selectedDate, { weekStartsOn: 1 }));
         const scheduleIds = scheduleToDelete.map(s => s.id);
         const leavesToDelete = leaves.filter(l => {
-            const leaveDate = new Date(l.date);
+            const leaveDate = parseISO(l.date);
             const isThisWeek = isSameWeek(leaveDate, selectedDate, { weekStartsOn: 1 });
             const isAutoLeave = l.reason?.includes('[Tự động]');
             return isThisWeek && isAutoLeave;
         });
         const leaveIds = leavesToDelete.map(l => l.id);
 
-        const promises = [];
-        if (scheduleIds.length > 0) promises.push(deleteBatch(COLLECTIONS.SCHEDULE, scheduleIds));
-        if (leaveIds.length > 0) promises.push(deleteBatch(COLLECTIONS.LEAVES, leaveIds));
-
-        await Promise.all(promises);
+        if (scheduleIds.length > 0) {
+            await deleteBatch(COLLECTIONS.SCHEDULE, scheduleIds);
+        }
+        if (leaveIds.length > 0) {
+            await deleteBatch(COLLECTIONS.LEAVES, leaveIds);
+        }
 
         // Invalidate Queries
         queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
@@ -261,27 +263,75 @@ export const useFixedSchedule = (
         const toastId = toast.loading('Đang lưu dữ liệu vào hệ thống...');
 
         try {
+            const previousSchedules = queryClient.getQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all);
             queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, previewResult.newSchedule);
 
+            const previewIds = new Set(previewResult.newSchedule.map(s => s.id));
+            const oldItemsMap = new Map(schedule.map(s => [s.id, s]));
+
+            // 1. Calculate toDelete: target week items AND next Monday's rest items that are replaced
+            const nextMonday = addDays(startOfCurrentWeek, 7);
+            const nextMondayStr = format(nextMonday, 'yyyy-MM-dd');
+
+            const toDelete = schedule
+                .filter(s => {
+                    const d = parseISO(s.date);
+                    const isThisWeek = isSameWeek(d, selectedDate, { weekStartsOn: 1 });
+                    const isNextMondayRest = s.date === nextMondayStr && s.jobId === 'JOB_NGHI_BU' && s.id.startsWith('rest_');
+                    return (isThisWeek || isNextMondayRest) && !previewIds.has(s.id);
+                })
+                .map(s => s.id);
+
+            // 2. Calculate toUpsert: newly created items OR modified items
+            const toUpsert = previewResult.newSchedule.filter(item => {
+                const oldItem = oldItemsMap.get(item.id);
+                if (!oldItem) return true; // Brand new item
+
+                const areEmployeeIdsEqual = (a: string[] = [], b: string[] = []) => {
+                    if (a.length !== b.length) return false;
+                    const sortedA = [...a].sort();
+                    const sortedB = [...b].sort();
+                    return sortedA.every((val, idx) => val === sortedB[idx]);
+                };
+
+                // Deep properties compare for modified items
+                return (
+                    oldItem.date !== item.date ||
+                    oldItem.shift !== item.shift ||
+                    oldItem.jobId !== item.jobId ||
+                    !areEmployeeIdsEqual(oldItem.employeeIds, item.employeeIds) ||
+                    oldItem.isFixed !== item.isFixed ||
+                    oldItem.requiredCount !== item.requiredCount ||
+                    oldItem.status !== item.status ||
+                    oldItem.note !== item.note ||
+                    oldItem.coefficient !== item.coefficient
+                );
+            });
+
             // FIREBASE SYNC with Timeout Logic
-            const itemsToSave = previewResult.newSchedule;
             const syncTask = async () => {
-                const syncPromises = [];
-                if (previewResult.itemsToDeleteIds.length > 0) {
-                    syncPromises.push(deleteBatch(COLLECTIONS.SCHEDULE, previewResult.itemsToDeleteIds));
+                let upsertDone = false;
+                if (toUpsert.length > 0) {
+                    await scheduleService.saveAll(toUpsert);
+                    upsertDone = true;
                 }
-                if (itemsToSave.length > 0) {
-                    syncPromises.push(scheduleService.saveAll(itemsToSave));
+                if (toDelete.length > 0) {
+                    await deleteBatch(COLLECTIONS.SCHEDULE, toDelete);
                 }
-                await Promise.all(syncPromises);
-                return 'SUCCESS';
+                return { upsertDone };
             };
 
             const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 10000));
             const raceResult = await Promise.race([syncTask(), timeoutPromise]);
 
+            let isTimeout = false;
+            let isPartiallySaved = false;
+
             if (raceResult === 'TIMEOUT') {
+                isTimeout = true;
                 toast.success(`Đang tiếp tục lưu ngầm! Bạn có thể thao tác tiếp.`, { id: toastId, duration: 5000 });
+            } else if (raceResult && typeof raceResult === 'object' && raceResult.upsertDone) {
+                isPartiallySaved = true;
             }
 
             // Audit Log
@@ -303,8 +353,18 @@ export const useFixedSchedule = (
         } catch (error) {
             console.error("Auto-schedule apply error:", error);
             const err = error as Error;
+
+            // Selective Rollback:
+            // If the upsert failed completely (or we haven't written anything), rollback cache
+            if (!isPartiallySaved && !isTimeout && previousSchedules) {
+                queryClient.setQueryData(SCHEDULE_KEYS.all, previousSchedules);
+            }
+
             if (err.message?.includes("QUOTA_EXCEEDED") || err.message?.includes("resource-exhausted")) {
                 toast.error(`⚠️ ĐÃ HẾT HẠN NGẠCH MIỄN PHÍ CAO ĐIỂM!`, { id: toastId, duration: 10000 });
+            } else if (isPartiallySaved) {
+                // If saveAll succeeded but deleteBatch failed
+                toast.error(`Đã lưu lịch mới nhưng gặp lỗi khi dọn dẹp lịch cũ. Vui lòng kiểm tra lại để tránh trùng lặp.`, { id: toastId, duration: 10000 });
             } else {
                 toast.error(`Lỗi lưu dữ liệu: ${err.message}`, { id: toastId });
             }
@@ -412,7 +472,7 @@ export const useFixedSchedule = (
         const { empId, day, shift } = selectedCell;
         const dateKey = format(day, 'yyyy-MM-dd');
         const items = schedule.filter(s =>
-            format(new Date(s.date), 'yyyy-MM-dd') === dateKey &&
+            s.date === dateKey &&
             s.shift === shift &&
             s.employeeIds.includes(empId)
         );
@@ -434,7 +494,7 @@ export const useFixedSchedule = (
 
         // Check existing items at target
         const existingItems = schedule.filter(s =>
-            format(new Date(s.date), 'yyyy-MM-dd') === targetDateKey &&
+            s.date === targetDateKey &&
             s.shift === targetShift &&
             s.employeeIds.includes(targetEmpId)
         );
@@ -444,7 +504,6 @@ export const useFixedSchedule = (
         }
 
         const newItems: ScheduleItem[] = [];
-        const updates: Promise<void>[] = [];
 
         for (const srcItem of clipboard.items) {
             // Skip nghỉ bù items - they are auto-created
@@ -452,7 +511,7 @@ export const useFixedSchedule = (
 
             const newItem: ScheduleItem = {
                 id: `paste_${targetDateKey}_${srcItem.jobId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-                date: targetDay.toISOString(),
+                date: format(targetDay, 'yyyy-MM-dd'),
                 shift: targetShift as 'Sáng' | 'Chiều' | 'Tối',
                 jobId: srcItem.jobId,
                 employeeIds: [targetEmpId],
@@ -461,28 +520,30 @@ export const useFixedSchedule = (
                 status: 'Pending'
             };
             newItems.push(newItem);
-            updates.push(scheduleService.save(newItem));
         }
 
         // Handle ca Tối → create nghỉ bù next morning
         if (targetShift === 'Tối') {
             const restItem = createRestItem(targetEmpId, targetDay);
             const alreadyHasRest = schedule.some(s =>
-                isSameDay(new Date(s.date), new Date(restItem.date)) &&
+                s.date === restItem.date &&
                 s.shift === 'Sáng' &&
                 s.employeeIds.includes(targetEmpId) &&
                 s.jobId === 'JOB_NGHI_BU'
             );
             if (!alreadyHasRest) {
                 newItems.push(restItem);
-                updates.push(scheduleService.save(restItem));
             }
         }
 
-        queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, (old = []) => [...old, ...newItems]);
-        await Promise.all(updates);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
-        toast.success(`Đã paste ${newItems.length} công việc`);
+        if (newItems.length > 0) {
+            queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, (old = []) => [...old, ...newItems]);
+            await scheduleService.saveAll(newItems);
+            queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
+            toast.success(`Đã paste ${newItems.length} công việc`);
+        } else {
+            toast.error('Không có công việc hợp lệ để paste');
+        }
     };
 
     return {

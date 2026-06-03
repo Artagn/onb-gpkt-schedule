@@ -24,7 +24,7 @@ export function getMetricValue(dailyMetrics: { [key: string]: number }, metricId
 }
 
 import { useMemo } from 'react';
-import { useData } from '../../context/DataContext';
+import { useConfigData } from '../../context/DataContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useCareCampaignsQuery, useCareMetricsQuery } from '../../hooks/useCareQuery';
 import { CareCampaign, CareReport, CareMetric } from '../../types';
@@ -32,7 +32,7 @@ import { getISOWeekId, getWeekStart, getWeekEnd, getWeekDates } from '../../serv
 import { auth } from '../../services/firebaseConfig';
 
 export function useCustomerCare() {
-    const { employees } = useData();
+    const { employees } = useConfigData();
     const user = auth.currentUser;
     const { role, isSuperAdmin } = usePermissions(user);
     const { data: campaignsData, isLoading: loadingCampaigns } = useCareCampaignsQuery();

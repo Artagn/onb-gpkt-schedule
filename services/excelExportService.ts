@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { Employee, Job, ScheduleItem } from '../types';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { sanitizeExcelValue } from '../utils/evaluationHelpers';
 
 export const exportWeeklySchedule = (
     schedule: ScheduleItem[],
@@ -27,7 +28,7 @@ export const exportWeeklySchedule = (
     const dataRows: any[][] = [];
 
     activeJobs.forEach(job => {
-        const row = [job.group, job.name];
+        const row = [sanitizeExcelValue(job.group), sanitizeExcelValue(job.name)];
 
         days.forEach(day => {
             // Find items for this job on this day
@@ -47,7 +48,7 @@ export const exportWeeklySchedule = (
                         return emp ? emp.fullName : 'Unknown';
                     })
                 );
-                row.push(names.join(', '));
+                row.push(sanitizeExcelValue(names.join(', ')));
             }
         });
 
@@ -96,9 +97,9 @@ export const exportScheduleData = (
 
         return {
             'Ngày': format(new Date(item.date), 'dd/MM/yyyy'),
-            'Buổi': item.shift,
-            'Tên công việc': jobName,
-            'Người thực hiện': employeeNames
+            'Buổi': sanitizeExcelValue(item.shift),
+            'Tên công việc': sanitizeExcelValue(jobName),
+            'Người thực hiện': sanitizeExcelValue(employeeNames)
         };
     });
 

@@ -12,7 +12,7 @@ import { EmployeeEvaluation, EvaluationMetric,  Job, Role } from '../../types';
 import { isDTGroup } from '../../utils/permissions';
 import toast from 'react-hot-toast';
 import { startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
-import { getDifficultyConfig, calcDifficultyConverted } from '../../utils/evaluationHelpers';
+import { getDifficultyConfig, calcDifficultyConverted, getLivechatJobDefaultStandard } from '../../utils/evaluationHelpers';
 import KpiTable from './KpiTable';
 import WorkPointsTable from './WorkPointsTable';
 import SummaryTable from './SummaryTable';
@@ -305,7 +305,7 @@ export default function EmployeeFormDT({ readOnly = false, employeeId, periodId 
 
             // Use livechatData if user edited, otherwise fallback to period config / 0
             const lcData = livechatData[job.id] || { standardPerSession: undefined, actual: undefined };
-            const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig.livechatStandards?.[job.id] || 35);
+            const standardPerSession = lcData.standardPerSession ?? (openPeriod?.dtConfig.livechatStandards?.[job.id] || getLivechatJobDefaultStandard(job.name));
             const actual = lcData.actual ?? 0;
 
             const totalRequests = stats.total * standardPerSession;

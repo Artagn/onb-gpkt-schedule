@@ -317,6 +317,7 @@ const JobManager: React.FC = () => {
                                         <th className="px-3 py-2 text-left font-bold text-[11px] text-gray-500 uppercase">Thời gian</th>
                                         <th className="px-3 py-2 text-left font-bold text-[11px] text-gray-500 uppercase">Thời lượng</th>
                                         <th className="px-3 py-2 text-left font-bold text-[11px] text-gray-500 uppercase">Link Meet</th>
+                                        <th className="px-3 py-2 text-left font-bold text-[11px] text-gray-500 uppercase">Link Tài liệu</th>
                                         <th className="px-3 py-2 text-center font-bold text-[11px] text-gray-500 uppercase">Trạng thái</th>
                                         <th className="px-3 py-2 text-right font-bold text-[11px] text-gray-500 uppercase">Thao tác</th>
                                     </tr>
@@ -335,7 +336,18 @@ const JobManager: React.FC = () => {
                                                 </td>
                                                 <td className="px-3 py-2 text-xs">{sub.duration}p</td>
                                                 <td className="px-3 py-2 max-w-[150px] truncate">
-                                                    <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-xs">{sub.link}</a>
+                                                    {sub.link ? (
+                                                        <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-xs">{sub.link}</a>
+                                                    ) : (
+                                                        <span className="text-gray-300 text-xs">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 max-w-[150px] truncate">
+                                                    {sub.documentLink ? (
+                                                        <a href={sub.documentLink} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline text-xs">{sub.documentLink}</a>
+                                                    ) : (
+                                                        <span className="text-gray-300 text-xs">—</span>
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
                                                     {sub.isActive ? <span className="text-green-600 text-[10px] font-bold">Hiện</span> : <span className="text-red-600 text-[10px]">Ẩn</span>}

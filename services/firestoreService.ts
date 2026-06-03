@@ -180,12 +180,14 @@ export async function saveCollection<T extends { id: string }>(
     }
 
     try {
-        await Promise.all(chunks.map(async (chunk) => {
+        // Sequential execution for batch chunks: atomic when ≤450 items;
+        // provides early fail-fast termination without cross-batch rollback when >450 items.
+        for (const chunk of chunks) {
             const batch = writeBatch(db);
             chunk.forEach(item => {
                 const docRef = doc(db, collectionName, item.id);
                 // Use { merge: true } to be safe and consistent with saveDocument
-                batch.set(docRef, item, { merge: true });
+                batch.set(docRef, item, { merge: mergeMergeOption(collectionName) });
             });
             await batch.commit().catch(err => {
                 if (err.code === 'resource-exhausted') {
@@ -193,11 +195,16 @@ export async function saveCollection<T extends { id: string }>(
                 }
                 throw err;
             });
-        }));
+        }
     } catch (error) {
         console.error(`Error batch saving ${collectionName}:`, error);
         throw error;
     }
+}
+
+// Helper to determine if merge option should be true
+function mergeMergeOption(col: string): boolean {
+    return col !== COLLECTIONS.AUDITS && col !== COLLECTIONS.SWAP_REQUESTS;
 }
 
 
@@ -222,20 +229,37 @@ export function subscribeToCollectionWithDateRange<T>(
         where(dateField, '<=', endDate)
     );
 
+    // Persistent parsed document cache inside the subscription closure
+    const parsedCache = new Map<string, T>();
+
     return onSnapshot(q,
         (snapshot) => {
-            const items = snapshot.docs.map(doc => {
-                const data = { id: doc.id, ...doc.data() };
-                if (schema) {
-                    const result = schema.safeParse(data);
-                    if (!result.success) {
-                        console.error(`❌ RT Data Check Failed [${collectionName}/${doc.id}]:`, result.error);
-                        return null;
+            // Process ONLY modified, added, or removed docs for O(1) Zod validation cost
+            snapshot.docChanges().forEach(change => {
+                const docId = change.doc.id;
+                if (change.type === 'removed') {
+                    parsedCache.delete(docId);
+                } else {
+                    const rawData = { id: docId, ...change.doc.data() };
+                    if (schema) {
+                        const result = schema.safeParse(rawData);
+                        if (result.success) {
+                            parsedCache.set(docId, result.data);
+                        } else {
+                            console.error(`❌ RT Data Check Failed [${collectionName}/${docId}]:`, result.error);
+                            parsedCache.delete(docId);
+                        }
+                    } else {
+                        parsedCache.set(docId, rawData as T);
                     }
-                    return result.data;
                 }
-                return data as T;
-            }).filter((item): item is T => item !== null);
+            });
+
+            // Map docs list matching query to retrieve from cache in O(1)
+            const items = snapshot.docs
+                .map(doc => parsedCache.get(doc.id))
+                .filter((item): item is T => item !== undefined);
+
             onData(items);
         },
         (error) => {
@@ -466,7 +490,9 @@ export async function deleteBatch(
     }
 
     try {
-        await Promise.all(chunks.map(async (chunk) => {
+        // Sequential execution for batch chunks: atomic when ≤450 items;
+        // provides early fail-fast termination without cross-batch rollback when >450 items.
+        for (const chunk of chunks) {
             const batch = writeBatch(db);
             chunk.forEach(id => {
                 const docRef = doc(db, collectionName, id);
@@ -478,7 +504,7 @@ export async function deleteBatch(
                 }
                 throw err;
             });
-        }));
+        }
     } catch (error) {
         console.error(`Error batch deleting from ${collectionName}:`, error);
         throw error;
@@ -504,7 +530,10 @@ export async function wipeAllCollections(): Promise<void> {
         COLLECTIONS.HOLIDAYS,
         COLLECTIONS.PATTERNS,
         COLLECTIONS.AUDITS,
-        COLLECTIONS.APP_CONFIG
+        COLLECTIONS.APP_CONFIG,
+        COLLECTIONS.LEAVE_BALANCES,
+        COLLECTIONS.SWAP_REQUESTS,
+        COLLECTIONS.JOB_GROUPS
     ];
 
 

@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ArrowLeftRight, Search, AlertCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ScheduleItem, Employee, Job, Status } from '../../types';
 import { swapService } from '../../services/swapService';
+import { useData } from '../../context/DataContext';
 
 interface Props {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourceItem, employees, schedule, jobs }) => {
+    const { leaves } = useData();
     const [targetDetail, setTargetDetail] = useState<{ empId: string, item?: ScheduleItem } | null>(null);
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,8 +26,19 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
 
     if (!isOpen) return null;
 
-    const sourceDate = new Date(sourceItem.date);
+    const sourceDate = parseISO(sourceItem.date);
     const sourceJob = jobs.find(j => j.id === sourceItem.jobId);
+
+    // Get leave status for a candidate in the source date and shift
+    const getCandidateLeaveStatus = (empId: string) => {
+        const leave = leaves.find(l =>
+            l.employeeId === empId &&
+            l.date === sourceItem.date &&
+            l.shift === sourceItem.shift &&
+            (l.status === 'Approved' || l.status === 'Pending')
+        );
+        return leave ? leave.status : null;
+    };
 
     // List of active employees excluding self
     const candidates = employees
@@ -35,7 +48,7 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
     const handleSelectCandidate = (empId: string) => {
         // Find if this candidate has a job in the same slot
         const item = schedule.find(s =>
-            isSameDay(new Date(s.date), sourceDate) &&
+            isSameDay(parseISO(s.date), sourceDate) &&
             s.shift === sourceItem.shift &&
             s.employeeIds.includes(empId) &&
             s.jobId !== 'JOB_NGHI_BU' // Ignore Rest for now, or handle specifically? 
@@ -48,6 +61,14 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
 
     const handleSubmit = async () => {
         if (!targetDetail) return;
+
+        // Block swap if target has approved leave
+        const targetLeaveStatus = getCandidateLeaveStatus(targetDetail.empId);
+        if (targetLeaveStatus === 'Approved') {
+            toast.error("Không thể đổi lịch với người đã được duyệt nghỉ phép!");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await swapService.createRequest({
@@ -72,6 +93,7 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
     };
 
     const targetJob = targetDetail?.item ? jobs.find(j => j.id === targetDetail.item?.jobId) : null;
+    const targetLeaveStatus = targetDetail ? getCandidateLeaveStatus(targetDetail.empId) : null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -128,17 +150,32 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
 
                     {/* TARGET PREVIEW */}
                     {targetDetail && (
-                        <div className={`p-3 rounded border ${targetDetail.item ? 'bg-purple-50 border-purple-100' : 'bg-gray-50 border-gray-200'}`}>
-                            <div className="text-xs uppercase font-bold mb-1 text-gray-500">Trạng thái của họ:</div>
-                            {targetDetail.item ? (
-                                <div>
-                                    <div className="font-bold text-purple-700">{targetJob?.name || 'Công việc khác'}</div>
-                                    <div className="text-xs text-purple-600">Họ sẽ nhận việc của bạn, và bạn nhận việc này.</div>
-                                </div>
-                            ) : (
-                                <div>
-                                    <div className="font-bold text-gray-600 italic">Hiện đang Trống lịch</div>
-                                    <div className="text-xs text-gray-500">Họ nhận việc của bạn. Bạn sẽ được nghỉ.</div>
+                        <div className="space-y-2">
+                            <div className={`p-3 rounded border ${targetDetail.item ? 'bg-purple-50 border-purple-100' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="text-xs uppercase font-bold mb-1 text-gray-500">Trạng thái của họ:</div>
+                                {targetDetail.item ? (
+                                    <div>
+                                        <div className="font-bold text-purple-700">{targetJob?.name || 'Công việc khác'}</div>
+                                        <div className="text-xs text-purple-600">Họ sẽ nhận việc của bạn, và bạn nhận việc này.</div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="font-bold text-gray-600 italic">Hiện đang Trống lịch</div>
+                                        <div className="text-xs text-gray-500">Họ nhận việc của bạn. Bạn sẽ được nghỉ.</div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {targetLeaveStatus && (
+                                <div className={`text-xs px-3 py-2 rounded border flex items-start gap-1.5
+                                    ${targetLeaveStatus === 'Approved' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-yellow-50 text-yellow-700 border-yellow-100'}
+                                `}>
+                                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                    <span>
+                                        {targetLeaveStatus === 'Approved'
+                                            ? '⚠️ Không thể đổi lịch: Nhân viên này đã được DUYỆT nghỉ phép ca này!'
+                                            : '⚠️ Lưu ý: Nhân viên này đang có đơn xin nghỉ phép CHỜ DUYỆT ca này!'}
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -160,7 +197,7 @@ const SwapRequestModal: React.FC<Props> = ({ isOpen, onClose, currentUser, sourc
                 <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 bg-white border rounded text-sm font-medium hover:bg-gray-50 text-gray-700">Hủy</button>
                     <button
-                        disabled={!targetDetail || isSubmitting}
+                        disabled={!targetDetail || isSubmitting || targetLeaveStatus === 'Approved'}
                         onClick={handleSubmit}
                         className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                     >

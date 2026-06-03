@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Award, Users, ClipboardCheck, CheckCircle2, X, Video } from 'lucide-react';
-import { format } from 'date-fns';
+import { Award, Users, ClipboardCheck, CheckCircle2, X, Video, FileText } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { ScheduleItem, Job, SubJob } from '../../types';
 
 export const TaskModal = ({ selectedTask, setSelectedTask, actionNote, setActionNote, trainingMetrics, setTrainingMetrics, handleTaskAction, jobs }: any) => {
@@ -13,7 +13,7 @@ export const TaskModal = ({ selectedTask, setSelectedTask, actionNote, setAction
             <div className="bg-white rounded-lg p-6 w-full max-w-md m-4 shadow-xl">
                 <h3 className="text-lg font-bold mb-2 text-gray-800">{job?.name}</h3>
                 <div className="text-sm text-gray-500 mb-4">
-                    {format(new Date(selectedTask.date), 'dd/MM/yyyy')} - {selectedTask.shift}
+                    {format(parseISO(selectedTask.date), 'dd/MM/yyyy')} - {selectedTask.shift}
                 </div>
 
                 <div className="mb-4">
@@ -98,7 +98,7 @@ export const TaskModal = ({ selectedTask, setSelectedTask, actionNote, setAction
     );
 };
 
-export const EditRestModal = ({ editingRestItem, setEditingRestItem, handleSaveRestItem }: any) => {
+export const EditRestModal = ({ editingRestItem, setEditingRestItem, handleSaveRestItem, isManager }: any) => {
     if (!editingRestItem) return null;
 
     return (
@@ -111,14 +111,20 @@ export const EditRestModal = ({ editingRestItem, setEditingRestItem, handleSaveR
                         <label className="block text-sm font-medium text-gray-700 mb-1">Ngày nghỉ</label>
                         <input
                             type="date"
-                            className="w-full border rounded p-2"
-                            value={format(new Date(editingRestItem.date), 'yyyy-MM-dd')}
+                            className="w-full border rounded p-2 disabled:bg-gray-100 disabled:text-gray-500 cursor-not-allowed"
+                            value={format(parseISO(editingRestItem.date), 'yyyy-MM-dd')}
+                            disabled={!isManager}
                             onChange={(e) => {
                                 if (e.target.value) {
-                                    setEditingRestItem({ ...editingRestItem, date: new Date(e.target.value).toISOString() });
+                                    setEditingRestItem({ ...editingRestItem, date: e.target.value });
                                 }
                             }}
                         />
+                        {!isManager && (
+                            <p className="text-[10px] text-amber-600 font-medium mt-1">
+                                ⚠️ Chỉ điều phối viên mới có quyền dời ngày nghỉ bù.
+                            </p>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
@@ -152,7 +158,7 @@ export const EditRestModal = ({ editingRestItem, setEditingRestItem, handleSaveR
 export const SubJobDetailModal = ({ viewingDetailItem, setViewingDetailItem, jobs, getSubJobs }: any) => {
     if (!viewingDetailItem) return null;
     const job = jobs.find((j: Job) => j.id === viewingDetailItem.jobId);
-    const subs = getSubJobs(viewingDetailItem.jobId, new Date(viewingDetailItem.date), viewingDetailItem.shift);
+    const subs = getSubJobs(viewingDetailItem.jobId, parseISO(viewingDetailItem.date), viewingDetailItem.shift);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setViewingDetailItem(null)}>
@@ -161,7 +167,7 @@ export const SubJobDetailModal = ({ viewingDetailItem, setViewingDetailItem, job
                     <div>
                         <h3 className="text-lg font-bold text-indigo-900">{job?.name}</h3>
                         <div className="text-sm text-gray-500 mt-1">
-                            {format(new Date(viewingDetailItem.date), 'dd/MM/yyyy')} - {viewingDetailItem.shift}
+                            {format(parseISO(viewingDetailItem.date), 'dd/MM/yyyy')} - {viewingDetailItem.shift}
                         </div>
                     </div>
                     <button onClick={() => setViewingDetailItem(null)} className="text-gray-400 hover:text-gray-600">
@@ -189,17 +195,30 @@ export const SubJobDetailModal = ({ viewingDetailItem, setViewingDetailItem, job
                                         )}
                                     </div>
                                     <div className="font-medium text-gray-800 text-sm mb-2">{sub.name}</div>
-                                    {sub.link && (
-                                        <a
-                                            href={sub.link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline gap-1.5 bg-blue-50 w-fit px-2 py-1 rounded border border-blue-100"
-                                        >
-                                            <Video className="w-3.5 h-3.5" />
-                                            Tham gia họp (Meet)
-                                        </a>
-                                    )}
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {sub.link && (
+                                            <a
+                                                href={sub.link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline gap-1.5 bg-blue-50 w-fit px-2 py-1 rounded border border-blue-100"
+                                            >
+                                                <Video className="w-3.5 h-3.5" />
+                                                Tham gia họp (Meet)
+                                            </a>
+                                        )}
+                                        {sub.documentLink && (
+                                            <a
+                                                href={sub.documentLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center text-xs text-emerald-600 hover:text-emerald-800 hover:underline gap-1.5 bg-emerald-50 w-fit px-2 py-1 rounded border border-emerald-100"
+                                            >
+                                                <FileText className="w-3.5 h-3.5" />
+                                                Tài liệu hướng dẫn
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

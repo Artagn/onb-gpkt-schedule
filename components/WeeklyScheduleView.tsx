@@ -7,7 +7,7 @@ import { Calendar, Copy, Check, ExternalLink, ChevronLeft, ChevronRight, Camera 
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 
-import { useData } from '../context/DataContext';
+import { useConfigData } from '../context/DataContext';
 
 interface Props {
     // No props
@@ -21,7 +21,7 @@ interface WeeklyEntry {
 }
 
 const WeeklyScheduleView: React.FC<Props> = () => {
-    const { jobs, subJobs } = useData();
+    const { jobs, subJobs } = useConfigData();
     // State for selected week (default to current week)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [copiedSection, setCopiedSection] = useState<string | null>(null);

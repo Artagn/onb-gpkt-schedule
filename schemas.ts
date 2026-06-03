@@ -60,6 +60,7 @@ export const SubJobSchema = z.object({
     startTime: z.string().default(''),
     endTime: z.string().default(''),
     link: z.string().default(''),
+    documentLink: z.string().optional().default(''),
     isActive: z.boolean().default(true),
 });
 
