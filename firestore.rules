@@ -186,7 +186,21 @@ service cloud.firestore {
     // ========== EVALUATIONS (Kết quả đánh giá) ==========
     match /evaluations/{evaluationId} {
       allow read: if isAuthenticated();
+      // Admin/Coordinator have full write access
       allow write: if isCoordinatorOrAdmin();
+      // Staff can create/update their own evaluations
+      allow create: if isAuthenticated() && 
+                    request.resource.data.employeeId == getUserEmployeeId() &&
+                    request.resource.data.status in ['pending', 'submitted'];
+      allow update: if isAuthenticated() && 
+                    resource.data.employeeId == getUserEmployeeId() &&
+                    request.resource.data.employeeId == getUserEmployeeId() &&
+                    // Guard: Staff cannot change an already approved evaluation
+                    resource.data.status != 'approved' &&
+                    // Guard: Staff cannot change status to approved
+                    request.resource.data.status != 'approved' &&
+                    // Guard: Staff cannot modify locked evaluations
+                    (!('lockedSnapshot' in resource.data) || resource.data.lockedSnapshot == null);
     }
     
     // ========== JOB GROUPS (Nhóm công việc) ==========
