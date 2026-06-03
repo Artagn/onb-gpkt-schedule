@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { format, getDay, isValid } from 'date-fns';
+import { format, getDay, isValid, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ExternalLink, CalendarDays } from 'lucide-react';
 import { Job, SubJob } from '../../types';
@@ -208,7 +208,7 @@ const PublicDailySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, j
                         type="date"
                         className="bg-transparent border-none text-white font-medium text-sm focus:ring-0 cursor-pointer outline-none [color-scheme:dark]"
                         value={formattedDate}
-                        onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                        onChange={(e) => setSelectedDate(parseISO(e.target.value))}
                     />
                     <div className="bg-white/20 px-3 py-1 rounded text-sm font-semibold text-white border border-white/20 min-w-[90px] text-center">
                         {getDayName(selectedDate)}

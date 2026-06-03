@@ -10,6 +10,7 @@ import { Edit2, Trash2, Plus, Filter, FileSpreadsheet, Search } from 'lucide-rea
 import { useJobManager } from './useJobManager';
 import { MultiSelect } from './MultiSelect';
 import { DeleteModal, JobEditModal, SubJobEditModal, ImportModal, JobGroupEditModal } from './Modals';
+import EmptyState from '../common/EmptyState';
 
 const JobManager: React.FC = () => {
     const {
@@ -139,24 +140,30 @@ const JobManager: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {[...jobGroups].sort((a, b) => a.order - b.order).map(g => (
-                                        <tr key={g.id} className={!g.isActive ? 'bg-gray-50 opacity-60' : ''}>
-                                            <td className="px-3 py-2 text-xs font-medium text-gray-500">{g.order}</td>
-                                            <td className="px-3 py-2 text-xs font-bold text-gray-800">{g.name}</td>
-                                            <td className="px-3 py-2 text-xs">
-                                                <span className={`px-2 py-1 rounded-md text-[11px] font-medium ${g.colorClass}`}>
-                                                    Demo Hiển thị
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">
-                                                {g.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
-                                            </td>
-                                            <td className="px-3 py-2 text-right text-xs font-medium">
-                                                <button onClick={() => handleEditJobGroup(g)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
-                                                <button type="button" onClick={() => handleDeleteJobGroupClick(g)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
-                                            </td>
+                                    {jobGroups.length === 0 ? (
+                                        <tr>
+                                            <EmptyState colSpan={5} size="sm" title="Không tìm thấy nhóm công việc nào." />
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        [...jobGroups].sort((a, b) => a.order - b.order).map(g => (
+                                            <tr key={g.id} className={!g.isActive ? 'bg-gray-50 opacity-60' : ''}>
+                                                <td className="px-3 py-2 text-xs font-medium text-gray-500">{g.order}</td>
+                                                <td className="px-3 py-2 text-xs font-bold text-gray-800">{g.name}</td>
+                                                <td className="px-3 py-2 text-xs">
+                                                    <span className={`px-2 py-1 rounded-md text-[11px] font-medium ${g.colorClass}`}>
+                                                        Demo Hiển thị
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">
+                                                    {g.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-xs font-medium">
+                                                    <button onClick={() => handleEditJobGroup(g)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                    <button type="button" onClick={() => handleDeleteJobGroupClick(g)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -230,27 +237,33 @@ const JobManager: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredJobs.map(j => (
-                                        <tr key={j.id} className={!j.isActive ? 'bg-gray-50 opacity-60' : ''}>
-                                            <td className="px-3 py-2 text-xs font-medium">{j.name}</td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] ${jobGroups.find(gr => gr.name === j.group)?.colorClass || 'bg-gray-100 text-gray-800'}`}>{j.group}</span>
-                                            </td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">
-                                                {j.classification ? <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px]">{j.classification}</span> : <span className="text-gray-300">—</span>}
-                                            </td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">{j.standardPoint}</td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">{j.durationMinutes}</td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">{j.difficulty}</td>
-                                            <td className="px-3 py-2 text-xs text-gray-500">
-                                                {j.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
-                                            </td>
-                                            <td className="px-3 py-2 text-right text-xs font-medium">
-                                                <button onClick={() => handleEditJob(j)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
-                                                <button type="button" onClick={() => handleDeleteJobClick(j)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
-                                            </td>
+                                    {filteredJobs.length === 0 ? (
+                                        <tr>
+                                            <EmptyState colSpan={8} size="sm" title="Không tìm thấy công việc nào phù hợp." />
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        filteredJobs.map(j => (
+                                            <tr key={j.id} className={!j.isActive ? 'bg-gray-50 opacity-60' : ''}>
+                                                <td className="px-3 py-2 text-xs font-medium">{j.name}</td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] ${jobGroups.find(gr => gr.name === j.group)?.colorClass || 'bg-gray-100 text-gray-800'}`}>{j.group}</span>
+                                                </td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">
+                                                    {j.classification ? <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px]">{j.classification}</span> : <span className="text-gray-300">—</span>}
+                                                </td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">{j.standardPoint}</td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">{j.durationMinutes}</td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">{j.difficulty}</td>
+                                                <td className="px-3 py-2 text-xs text-gray-500">
+                                                    {j.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-xs font-medium">
+                                                    <button onClick={() => handleEditJob(j)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                    <button type="button" onClick={() => handleDeleteJobClick(j)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -323,42 +336,48 @@ const JobManager: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {filteredSubJobs.map(sub => {
-                                        const parent = jobs.find(j => j.id === sub.jobId);
-                                        return (
-                                            <tr key={sub.id} className={!sub.isActive ? 'bg-gray-50 opacity-60' : ''}>
-                                                <td className="px-3 py-2 font-bold text-blue-800 text-xs">{parent?.name || '---'}</td>
-                                                <td className="px-3 py-2 text-xs">{sub.name}</td>
-                                                <td className="px-3 py-2 text-gray-600 text-xs">{sub.product}</td>
-                                                <td className="px-3 py-2">
-                                                    <div className="font-medium text-xs">{sub.day} - {sub.shift}</div>
-                                                    <div className="text-[10px] text-gray-500">{sub.startTime} - {sub.endTime}</div>
-                                                </td>
-                                                <td className="px-3 py-2 text-xs">{sub.duration}p</td>
-                                                <td className="px-3 py-2 max-w-[150px] truncate">
-                                                    {sub.link ? (
-                                                        <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-xs">{sub.link}</a>
-                                                    ) : (
-                                                        <span className="text-gray-300 text-xs">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 max-w-[150px] truncate">
-                                                    {sub.documentLink ? (
-                                                        <a href={sub.documentLink} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline text-xs">{sub.documentLink}</a>
-                                                    ) : (
-                                                        <span className="text-gray-300 text-xs">—</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-center">
-                                                    {sub.isActive ? <span className="text-green-600 text-[10px] font-bold">Hiện</span> : <span className="text-red-600 text-[10px]">Ẩn</span>}
-                                                </td>
-                                                <td className="px-3 py-2 text-right font-medium">
-                                                    <button onClick={() => handleEditSub(sub)} className="text-indigo-600 hover:text-indigo-900 mr-2"><Edit2 className="w-3.5 h-3.5" /></button>
-                                                    <button onClick={() => handleDeleteSubClick(sub)} className="text-red-600 hover:text-red-900"><Trash2 className="w-3.5 h-3.5" /></button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {filteredSubJobs.length === 0 ? (
+                                        <tr>
+                                            <EmptyState colSpan={9} size="sm" title="Không tìm thấy hạng mục nào phù hợp." />
+                                        </tr>
+                                    ) : (
+                                        filteredSubJobs.map(sub => {
+                                            const parent = jobs.find(j => j.id === sub.jobId);
+                                            return (
+                                                <tr key={sub.id} className={!sub.isActive ? 'bg-gray-50 opacity-60' : ''}>
+                                                    <td className="px-3 py-2 font-bold text-blue-800 text-xs">{parent?.name || '---'}</td>
+                                                    <td className="px-3 py-2 text-xs">{sub.name}</td>
+                                                    <td className="px-3 py-2 text-gray-600 text-xs">{sub.product}</td>
+                                                    <td className="px-3 py-2">
+                                                        <div className="font-medium text-xs">{sub.day} - {sub.shift}</div>
+                                                        <div className="text-[10px] text-gray-500">{sub.startTime} - {sub.endTime}</div>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-xs">{sub.duration}p</td>
+                                                    <td className="px-3 py-2 max-w-[150px] truncate">
+                                                        {sub.link ? (
+                                                            <a href={sub.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-xs">{sub.link}</a>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 max-w-[150px] truncate">
+                                                        {sub.documentLink ? (
+                                                            <a href={sub.documentLink} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline text-xs">{sub.documentLink}</a>
+                                                        ) : (
+                                                            <span className="text-gray-300 text-xs">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center">
+                                                        {sub.isActive ? <span className="text-green-600 text-[10px] font-bold">Hiện</span> : <span className="text-red-600 text-[10px]">Ẩn</span>}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right font-medium">
+                                                        <button onClick={() => handleEditSub(sub)} className="text-indigo-600 hover:text-indigo-900 mr-2"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => handleDeleteSubClick(sub)} className="text-red-600 hover:text-red-900"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                 </tbody>
                             </table>
                         </div>

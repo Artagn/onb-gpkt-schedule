@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Job,  SubJob } from '../../types';
+import { Job, SubJob, JobGroupDef } from '../../types';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { jobsService, subJobsService } from '../../services/firestoreService';
@@ -44,7 +44,7 @@ export const useJobManager = () => {
 
     // JobGroup Edit State
     const [isEditingGroup, setIsEditingGroup] = useState<string | null>(null);
-    const [editGroupForm, setEditGroupForm] = useState<Partial<any>>({});
+    const [editGroupForm, setEditGroupForm] = useState<Partial<JobGroupDef>>({});
 
     // SubJob Edit State
     const [isEditingSub, setIsEditingSub] = useState<string | null>(null);
@@ -68,9 +68,23 @@ export const useJobManager = () => {
         if ((job.standardPoint ?? 0) < 0) errors.push("Điểm chuẩn không được âm");
         if ((job.durationMinutes ?? 0) < 0) errors.push("Thời lượng không được âm");
         if ((job.difficulty ?? 1) <= 0) errors.push("Độ khó phải lớn hơn 0");
-        if (!job.id) {
-            const duplicate = jobs.find(j => j.name.toLowerCase() === job.name?.toLowerCase().trim());
-            if (duplicate) errors.push("Tên công việc đã tồn tại");
+        
+        const duplicate = jobs.find(j => 
+            j.name.toLowerCase() === job.name?.toLowerCase().trim() && 
+            j.id !== job.id
+        );
+        if (duplicate) errors.push("Tên công việc đã tồn tại");
+        
+        return errors;
+    };
+
+    const validateSubJob = (sub: Partial<SubJob>): string[] => {
+        const errors: string[] = [];
+        if (!sub.jobId) errors.push("Công việc cha không được để trống");
+        if (!sub.name?.trim()) errors.push("Tên hạng mục không được để trống");
+        if (sub.duration !== undefined && sub.duration < 0) errors.push("Thời lượng không được âm");
+        if (sub.shift && !['Sáng', 'Chiều', 'Tối'].includes(sub.shift)) {
+            errors.push("Buổi làm việc phải là Sáng, Chiều, hoặc Tối");
         }
         return errors;
     };
@@ -200,8 +214,9 @@ export const useJobManager = () => {
     };
 
     const handleSaveSub = () => {
-        if (!editSubForm.jobId || !editSubForm.name) {
-            toast.error("Công việc và Tên hạng mục là bắt buộc");
+        const errors = validateSubJob(editSubForm);
+        if (errors.length > 0) {
+            toast.error("Lỗi validation:\n" + errors.map((e, i) => `${i + 1}. ${e}`).join('\n'));
             return;
         }
 
@@ -278,7 +293,10 @@ export const useJobManager = () => {
 
             if (importMode === 'jobs') {
                 const newJobs: Job[] = [];
+                const allErrors: string[] = [];
+
                 rows.forEach((row, idx) => {
+                    const lineNum = idx + 2;
                     if (row.length >= 1 && row[0]) {
                         const name = String(row[0]).trim();
                         const groupStr = String(row[1] || '').trim();
@@ -286,66 +304,137 @@ export const useJobManager = () => {
                         const standardPoint = parseFloat(String(row[2]).replace(',', '.') || '0');
                         const durationMinutes = parseInt(String(row[3]).trim() || '0');
                         const difficulty = parseFloat(String(row[4]).replace(',', '.') || '1');
-                        const activeStr = String(row[5]).trim().toLowerCase();
-                        const isActive = activeStr === 'active' || activeStr === 'đang hoạt động' || activeStr === 'true' || activeStr === 'có' || true;
+                        
+                        const activeStr = String(row[5] || '').trim().toLowerCase();
+                        const isActive = activeStr ? (activeStr === 'active' || activeStr === 'đang hoạt động' || activeStr === 'true' || activeStr === 'có' || activeStr === 'yes' || activeStr === '1') : true;
 
-                        newJobs.push({
-                            id: `job_imp_${Date.now()}_${idx}`,
-                            name, group, standardPoint, durationMinutes, difficulty, isActive
-                        });
+                        const jobData: Job = {
+                            id: `job_imp_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 3)}`,
+                            name,
+                            group,
+                            standardPoint,
+                            durationMinutes,
+                            difficulty,
+                            isActive
+                        };
+
+                        const rowErrors = validateJob(jobData);
+                        const duplicateInImport = newJobs.some(j => j.name.toLowerCase() === name.toLowerCase());
+                        if (duplicateInImport) {
+                            rowErrors.push("Tên công việc bị trùng lặp trong file Excel");
+                        }
+
+                        if (rowErrors.length > 0) {
+                            allErrors.push(`Dòng ${lineNum} (${name}): ${rowErrors.join(', ')}`);
+                        } else {
+                            newJobs.push(jobData);
+                        }
                     }
                 });
 
+                if (allErrors.length > 0) {
+                    toast.error(
+                        `Lỗi import Excel:\n` +
+                        allErrors.slice(0, 3).join('\n') +
+                        (allErrors.length > 3 ? `\n... và ${allErrors.length - 3} lỗi khác.` : ''),
+                        { duration: 6000 }
+                    );
+                    return;
+                }
+
                 if (newJobs.length > 0) {
                     toast.promise(
-                        Promise.all(newJobs.map(j => jobsService.save(j))).then(() => {
+                        jobsService.saveAll(newJobs).then(() => {
                             queryClient.invalidateQueries({ queryKey: JOB_KEYS.all });
                         }),
                         {
                             loading: `Đang lưu ${newJobs.length} công việc...`,
-                            success: `Đã nhập và lưu thành công!`,
-                            error: 'Lỗi khi lưu dữ liệu'
+                            success: `Đã nhập và lưu thành công ${newJobs.length} công việc!`,
+                            error: 'Lỗi khi lưu dữ liệu.'
                         }
                     );
                     setImportMode('none');
+                } else {
+                    toast.error("File không có dữ liệu hợp lệ.");
                 }
             } else if (importMode === 'subJobs') {
                 const newSubs: SubJob[] = [];
+                const allErrors: string[] = [];
+
                 rows.forEach((row, idx) => {
+                    const lineNum = idx + 2;
                     if (row.length >= 2 && row[0]) {
                         const jobName = String(row[0]).trim();
-                        const parentJob = jobs.find(j => j.name === jobName);
-                        if (parentJob) {
-                            newSubs.push({
-                                id: `sub_imp_${Date.now()}_${idx}`,
-                                jobId: parentJob.id,
-                                name: String(row[1]).trim() || 'No Name',
-                                product: String(row[2] || '').trim(),
-                                day: String(row[3] || '').trim(),
-                                duration: parseInt(String(row[4] || '0')),
-                                shift: (String(row[5] || 'Sáng').trim() as any),
-                                startTime: String(row[6] || '').trim(),
-                                endTime: String(row[7] || '').trim(),
-                                link: String(row[8] || '').trim(),
-                                documentLink: String(row[9] || '').trim(),
-                                isActive: true
-                            });
+                        const parentJob = jobs.find(j => j.name.toLowerCase() === jobName.toLowerCase());
+                        if (!parentJob) {
+                            allErrors.push(`Dòng ${lineNum}: Công việc cha "${jobName}" không tồn tại trong hệ thống.`);
+                            return;
+                        }
+
+                        const name = String(row[1]).trim();
+                        const product = String(row[2] || '').trim();
+                        const day = String(row[3] || 'Thứ 2').trim();
+                        const duration = parseInt(String(row[4] || '0'));
+                        
+                        let shiftVal = String(row[5] || 'Sáng').trim();
+                        if (!['Sáng', 'Chiều', 'Tối'].includes(shiftVal)) {
+                            shiftVal = 'Sáng';
+                        }
+                        const shift = shiftVal as 'Sáng' | 'Chiều' | 'Tối';
+
+                        const startTime = String(row[6] || '').trim();
+                        const endTime = String(row[7] || '').trim();
+                        const link = String(row[8] || '').trim();
+                        const documentLink = String(row[9] || '').trim();
+
+                        const subData: SubJob = {
+                            id: `sub_imp_${Date.now()}_${idx}_${Math.random().toString(36).substr(2, 3)}`,
+                            jobId: parentJob.id,
+                            name,
+                            product,
+                            day,
+                            shift,
+                            duration,
+                            startTime,
+                            endTime,
+                            link,
+                            documentLink,
+                            isActive: true
+                        };
+
+                        const rowErrors = validateSubJob(subData);
+                        if (rowErrors.length > 0) {
+                            allErrors.push(`Dòng ${lineNum} (${name}): ${rowErrors.join(', ')}`);
+                        } else {
+                            newSubs.push(subData);
                         }
                     }
                 });
 
+                if (allErrors.length > 0) {
+                    toast.error(
+                        `Lỗi import Excel:\n` +
+                        allErrors.slice(0, 3).join('\n') +
+                        (allErrors.length > 3 ? `\n... và ${allErrors.length - 3} lỗi khác.` : ''),
+                        { duration: 6000 }
+                    );
+                    return;
+                }
+
                 if (newSubs.length > 0) {
                     toast.promise(
-                        Promise.all(newSubs.map(s => subJobsService.save(s))).then(() => {
+                        subJobsService.saveAll(newSubs).then(() => {
                             queryClient.invalidateQueries({ queryKey: SUBJOB_KEYS.all });
                         }),
                         {
                             loading: `Đang lưu ${newSubs.length} hạng mục...`,
-                            success: `Đã nhập và lưu thành công!`,
-                            error: 'Lỗi khi lưu dữ liệu'
+                            success: `Đã nhập và lưu thành công ${newSubs.length} hạng mục!`,
+                            error: 'Lỗi khi lưu dữ liệu.'
                         }
                     );
                     setImportMode('none');
+                } else {
+                    toast.error("File không có dữ liệu hợp lệ.");
                 }
             }
         };

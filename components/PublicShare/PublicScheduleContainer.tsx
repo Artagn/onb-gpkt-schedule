@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Calendar as CalendarIcon, CalendarRange } from 'lucide-react';
-import { format, isSameDay } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import { format } from 'date-fns';
 import PublicDailySchedule from './PublicDailySchedule';
 import PublicWeeklySchedule from './PublicWeeklySchedule';
 import { Job, SubJob } from '../../types';

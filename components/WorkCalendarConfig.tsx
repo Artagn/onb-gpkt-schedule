@@ -1,14 +1,14 @@
 
 import React, { useState } from 'react';
 import { WorkPeriod, Holiday, WorkShiftConfig } from '../types';
-import { Plus, Trash2, Calendar, Save } from 'lucide-react';
-import { format } from 'date-fns';
+import { Plus, Trash2, Calendar } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
-import { workPeriodsService, holidaysService } from '../services/firestoreService';
 
 import { useData } from '../context/DataContext';
 import { useWorkPeriodMutations } from '../hooks/useWorkPeriodsQuery';
 import { useHolidayMutations } from '../hooks/useHolidaysQuery';
+import EmptyState from './common/EmptyState';
 
 interface Props {
     // No data props needed
@@ -116,36 +116,47 @@ const WorkCalendarConfig: React.FC<Props> = () => {
                                     <Plus className="w-4 h-4 mr-2" /> Thêm khoảng thời gian
                                 </button>
                             </div>
-                            <div className="grid gap-4">
-                                {workPeriods.map(period => (
-                                    <div key={period.id} className="border rounded p-4 bg-gray-50 hover:bg-white hover:shadow transition-shadow">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <h3 className="font-bold text-lg text-blue-800">{period.name}</h3>
-                                                <p className="text-sm text-gray-600">
-                                                    {period.startDate ? format(new Date(period.startDate), 'dd/MM/yyyy') : '...'} - {period.endDate ? format(new Date(period.endDate), 'dd/MM/yyyy') : '...'}
-                                                </p>
+                            {workPeriods.length === 0 ? (
+                                <EmptyState
+                                    title="Chưa có khoảng thời gian làm việc nào."
+                                    description="Vui lòng thêm khoảng thời gian mới để thiết lập lịch làm việc."
+                                    action={{
+                                        label: "Thêm khoảng thời gian",
+                                        onClick: createNewPeriod
+                                    }}
+                                />
+                            ) : (
+                                <div className="grid gap-4">
+                                    {workPeriods.map(period => (
+                                        <div key={period.id} className="border rounded p-4 bg-gray-50 hover:bg-white hover:shadow transition-shadow">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h3 className="font-bold text-lg text-blue-800">{period.name}</h3>
+                                                    <p className="text-sm text-gray-600">
+                                                        {period.startDate ? format(parseISO(period.startDate), 'dd/MM/yyyy') : '...'} - {period.endDate ? format(parseISO(period.endDate), 'dd/MM/yyyy') : '...'}
+                                                    </p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setEditingPeriod(period)} className="text-blue-600 hover:underline text-sm">Sửa</button>
+                                                    <button onClick={() => handleDeletePeriod(period.id)} className="text-red-600 hover:underline text-sm">Xóa</button>
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setEditingPeriod(period)} className="text-blue-600 hover:underline text-sm">Sửa</button>
-                                                <button onClick={() => handleDeletePeriod(period.id)} className="text-red-600 hover:underline text-sm">Xóa</button>
+                                            <div className="grid grid-cols-7 gap-1 text-center">
+                                                {dayNames.map((day, idx) => {
+                                                    const conf = period.days[idx as keyof typeof period.days];
+                                                    const isActive = conf.morning || conf.afternoon || conf.evening;
+                                                    return (
+                                                        <div key={idx} className={`text-xs p-1 rounded ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-400'}`}>
+                                                            <div className="font-bold mb-1">{day}</div>
+                                                            <div>{conf.morning ? 'S' : '-'} {conf.afternoon ? 'C' : '-'} {conf.evening ? 'T' : '-'}</div>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-7 gap-1 text-center">
-                                            {dayNames.map((day, idx) => {
-                                                const conf = period.days[idx as keyof typeof period.days];
-                                                const isActive = conf.morning || conf.afternoon || conf.evening;
-                                                return (
-                                                    <div key={idx} className={`text-xs p-1 rounded ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-400'}`}>
-                                                        <div className="font-bold mb-1">{day}</div>
-                                                        <div>{conf.morning ? 'S' : '-'} {conf.afternoon ? 'C' : '-'} {conf.evening ? 'T' : '-'}</div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </>
                     ) : (
                         <div className="bg-gray-50 p-6 rounded border">
@@ -234,16 +245,21 @@ const WorkCalendarConfig: React.FC<Props> = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {holidays.sort((a, b) => a.date.localeCompare(b.date)).map(h => (
-                                <tr key={h.id} className="hover:bg-gray-50">
-                                    <td className="border p-2 text-xs">{format(new Date(h.date), 'dd/MM/yyyy')}</td>
-                                    <td className="border p-2 font-medium text-xs">{h.name}</td>
-                                    <td className="border p-2 text-center">
-                                        <button onClick={() => handleDeleteHoliday(h.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-3.5 h-3.5" /></button>
-                                    </td>
+                            {holidays.length === 0 ? (
+                                <tr>
+                                    <EmptyState colSpan={3} size="sm" title="Chưa có ngày lễ nào." />
                                 </tr>
-                            ))}
-                            {holidays.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-gray-500">Chưa có ngày lễ nào.</td></tr>}
+                            ) : (
+                                holidays.sort((a, b) => a.date.localeCompare(b.date)).map(h => (
+                                    <tr key={h.id} className="hover:bg-gray-50">
+                                        <td className="border p-2 text-xs">{format(parseISO(h.date), 'dd/MM/yyyy')}</td>
+                                        <td className="border p-2 font-medium text-xs">{h.name}</td>
+                                        <td className="border p-2 text-center">
+                                            <button onClick={() => handleDeleteHoliday(h.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-3.5 h-3.5" /></button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
