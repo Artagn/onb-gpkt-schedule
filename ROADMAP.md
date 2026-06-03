@@ -15,9 +15,9 @@ Hệ thống quản lý nhân sự cao cấp với real-time analytics, mobile-f
 
 | Metric | Value |
 |--------|-------|
-| Current Version | v3.19.2 |
-| Active Phase | Production Maintenance |
-| Last Major Feature | v3.19.0 - Livechat Performance-based Scoring |
+| Current Version | v4.4.8 |
+| Active Phase | Route & Data Validation Audit |
+| Last Major Feature | v4.4.8 - Secure Route Guards, Validated Excel Batch Imports & Unbiased Timezones |
 
 ---
 
@@ -41,6 +41,7 @@ Hệ thống quản lý nhân sự cao cấp với real-time analytics, mobile-f
 | v3.17.1 | Instant UI Updates (No F5) | ✅ Done |
 | v3.18.0 | Schedule Export Tool | ✅ Done |
 | v3.19.0 | Performance-based Livechat Scoring | ✅ Done |
+| v4.4.8 | Route Guards, Excel Atomic Import & timezone parsing | ✅ Done |
 
 ### Track B: Auto-Scheduling Enhancements
 
@@ -124,6 +125,9 @@ Phase 3: Remaining       → Scoring Engine (8 tiêu chí) cho Training + Others
 
 ## 📝 Notes
 
+- **Kế hoạch phiên sau (Next Session Agenda):**
+  - Chạy bộ test Emulator cho các quy tắc bảo mật `evaluations` mới và 9 kịch bản nghiệp vụ của Swap Market (P0).
+  - Đánh giá chi tiết các phân hệ phụ còn lại: `JobManager`, `DataIntegrityChecker`, `ScheduleViewer`, `WorkCalendarConfig`, `PublicShare`.
 - All new features require preview in staging before production
 - AI Chatbot đã gỡ bỏ hoàn toàn (v3.13.0)
 - Hệ thống production-stable, focus hiện tại là maintenance và incremental improvements

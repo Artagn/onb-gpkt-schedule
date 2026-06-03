@@ -208,3 +208,15 @@
     - **Gộp SaveAll cho pasteCell:** Thay vì lặp ghi đơn lẻ, gộp toàn bộ ca paste và ca nghỉ bù tự sinh vào 1 batch ghi duy nhất (`saveAll`).
     - **Set-based busyMap O(1):** So khớp chuỗi `'yyyy-MM-dd'` trực tiếp và lưu các cặp `empId_shift` bận vào một `Set` duy nhất qua `useMemo`, đưa tốc độ kiểm tra bận về $O(1)$.
 - **Lý do:** Bảo vệ tuyệt đối tính nguyên thủy và an toàn dữ liệu, chống thất thoát hoặc trống lịch, và tối ưu hóa hiệu năng tối đa cho phân hệ Điều phối.
+
+## 26. UX Route Protection, Validated Excel Batch Imports & Unbiased Timezones (v4.4.8)
+- **Vấn đề:**
+    1. Rò rỉ route ở mức UX khi Staff gõ trực tiếp URL `/config` hoặc `/admin` vì các route này chưa được bảo vệ ở cấp độ React Router, dẫn đến việc load các component/chunk nhạy cảm trước khi kiểm tra quyền truy cập.
+    2. Import Excel nhân sự ghi N+1 writes bằng `Promise.all` từng document riêng lẻ, không có tính giao dịch (nếu lỗi giữa chừng sẽ bị import một phần bẩn). Đồng thời email không lowercase tạo ra casing discrepancy gây lỗi map RBAC trong `user_roles`. Dữ liệu dòng Excel không được validate đầu vào dẫn đến ghi data bẩn vào Firestore.
+    3. Lệch ngày hiển thị ở GMT-8 tại CleanupManager và ScheduleExportTool do sử dụng `new Date(item.date)`.
+- **Quyết định:**
+    - **Route-level Guard:** Bọc `/config` và `/admin` tại `App.tsx` bằng bộ kiểm tra vai trò người dùng động (`Role.Admin` và `Role.Coordinator`) và redirect về trang chủ (`<Navigate to={ROUTES.DASHBOARD} replace />`).
+    - **Import Excel Atomic Batch:** Thay thế `Promise.all` bằng `employeesService.saveAll` (Firestore writeBatch sequential chunked).
+    - **Validate từng dòng + lowercase email:** Toàn bộ dữ liệu email của nhân viên import qua Excel được lowercase và trim. Chạy `validateEmployee` cho từng dòng trước khi tiến hành batch ghi. Nếu phát hiện bất kỳ dòng nào lỗi, hủy toàn bộ tiến trình ghi (atomic rollback) và xuất Toast báo lỗi chi tiết theo số dòng Excel.
+    - **parseISO & localeCompare:** Thay thế hiển thị ngày bằng `parseISO` địa phương và tối ưu hóa việc sắp xếp ca trực bằng so sánh chuỗi trực tiếp (`localeCompare`), loại bỏ `new Date` anti-pattern.
+- **Lý do:** Tăng cường an toàn bảo mật route-level, bảo vệ chất lượng dữ liệu sạch trên Firestore, tránh xung đột casing RBAC, và hiển thị nhất quán đa múi giờ.

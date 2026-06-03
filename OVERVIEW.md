@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-06-02  
-> **Version:** v4.4.7  
+> **Last Updated:** 2026-06-03  
+> **Version:** v4.4.8  
 > **Status:** ✅ Production
 
 ---
@@ -84,6 +84,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-06-03 | v4.4.8 | Route Guard, Excel Batch Import & Timezones | Guard route-level, validate Excel row-by-row & lowercase emails, parseISO & localeCompare in Admin tools |
 | 2026-06-02 | v4.4.7 | Dashboard & Coordination Solidification | Đồng bộ hóa múi giờ an toàn toàn diện (parseISO), khắc phục vi phạm React Rules of Hooks, củng cố tính atomicity cho các tác vụ lưu và copy-paste lịch trực, tối ưu hiệu năng O(1) busyMap và nâng cấp số phiên bản đồng bộ sang v4.4.7. |
 | 2026-06-02 | v4.1.0 | Cloud Function approveSwapRequest & Secure firestore.rules RBAC Overhaul | Chuyển đổi logic duyệt Đổi lịch sang Cloud Function (transaction atomic), siết chặt 100% Rules bảo mật Firestore qua bảng tra cứu user_roles có lối thoát Super Admin, tích hợp Panel chạy migration, và chuẩn hóa date format operational. |
 | 2026-06-02 | v4.0.0 | React 19 Context Splitting & Bulk Sync Optimization | Phân tách God Context thành 4-Context cô lập hoàn toàn re-render thừa. Tối ưu hóa cầu nối dữ liệu Real-time (Zod parsedCache & docChanges). Tối ưu ghi đè Auto-Schedule (diff 3 chiều) giúp giảm >95% Firestore writes và đạt atomicity 100%. Kích hoạt thực sự Firebase Hosting CDN Edge Cache cho API công khai. |

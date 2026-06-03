@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 4.4.7 | **Last Updated:** 2026-06-02
+> **Version:** 4.4.8 | **Last Updated:** 2026-06-03
 
 ---
 
@@ -215,6 +215,8 @@ App.tsx                    # Root + Provider + Router
 **Bảo mật Firestore Rules:**
 - **Null-email Token Guard:** Mọi hàm tra cứu email đều được bảo vệ bằng kiểm tra `request.auth.token.email != null` và fallback `'no-email'` để tránh engine-level crash khi token không chứa email.
 - **Bảng tra cứu `/user_roles`:** Được đồng bộ tự động từ `employees` thông qua trigger `onEmployeeWrite` (Cloud Function) và lưu trữ dưới dạng email được viết thường và cắt khoảng trắng (`email.toLowerCase().trim()`). Chỉ có Admin SDK của Cloud Functions được quyền ghi vào đây.
+- **Route-level UX Guards (v4.4.8):** Restricts route entries to `/config` and `/admin` in `App.tsx` directly, preventing Staff from hitting administrative views.
+- **Excel Employee Import (v4.4.8):** Enforces row-by-row validation (`validateEmployee`) and email lowercase normalization prior to importing. Utilizes `employeesService.saveAll` (Firestore chunked writeBatch) to guarantee atomicity (full rollback on validation failure, avoiding N+1 writes).
 
 ### 3.2 Auto-Scheduling
 - **3-Phase Engine:**
