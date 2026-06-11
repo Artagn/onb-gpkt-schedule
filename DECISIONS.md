@@ -277,5 +277,15 @@
     - **Siết Rules Allocation:** Bổ sung điều kiện kiểm tra equality `request.resource.data.assigned == resource.data.assigned` và tương tự với `newAssigned` đối với quyền cập nhật của Staff trong `firestore.rules`.
 - **Lý do:** Tăng tính tái sử dụng code (DRY), đảm bảo tính nguyên tử (atomicity) khi nhân viên lưu tiến độ, tránh lỗi runtime do mutation side-effect, và bịt kín lỗ hổng bảo mật cho phép Staff tự ý sửa đổi số lượng phân công công việc.
 
+## 35. Phân công hàng ngày: Cho phép sửa trực tiếp lũy kế đã chia (v4.4.17)
+- **Vấn đề:** Giao diện phân công hàng ngày trước đây dùng cơ chế nhập số lượng "Chia mới" rồi bấm lưu để cộng dồn vào "Đã chia" và reset ô nhập về 0. Cơ chế này gây khó khăn khi người điều phối nhập nhầm (không thể giảm số lượng đã chia) và làm giao diện rườm rã vì có thêm dòng chữ "Đã chia: X" bên dưới ô nhập.
+- **Quyết định:**
+    - Loại bỏ dòng chữ "Đã chia: X" rác.
+    - Cho phép điều phối viên chỉnh sửa trực tiếp số phân công lũy kế (`assigned`) ngay trong ô nhập liệu.
+    - Khi bấm lưu, hệ thống sẽ lưu trực tiếp giá trị mới này lên Firestore, đồng thời đặt `newAssigned = 0`.
+    - Tính toán gộp `assigned + newAssigned` trong logic báo cáo để giữ tính tương thích ngược cho dữ liệu lịch sử.
+- **Lý do:** Giúp người điều phối dễ dàng sửa sai (tăng/giảm số lượng phân công tùy ý), đồng thời tinh gọn giao diện làm việc tối đa theo đúng yêu cầu trải nghiệm người dùng.
+
+
 
 

@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-06-08  
-> **Version:** v4.4.16  
+> **Last Updated:** 2026-06-11  
+> **Version:** v4.4.17  
 > **Status:** ✅ Production
 
 ---
@@ -85,6 +85,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-06-11 | v4.4.17 | Phân công Hàng ngày & Sửa đổi Nghỉ bù | Cho phép chỉnh sửa trực tiếp số phân công lũy kế trong ô nhập liệu Daily Allocation, loại bỏ text "Đã chia: X" rác. Sửa dứt điểm lỗi tự phục hồi/trùng lặp vé nghỉ bù khi đổi lịch (Nguyễn Thị Ngân) qua useMyTasks & schedulerEngine guards. |
 | 2026-06-08 | v4.4.16 | Shared Allocation Merge & Staff Save Hardening | Trích xuất utility dùng chung `utils/allocationMerge.ts`. Bảo mật hóa Firestore Rules cấm Staff sửa assigned/newAssigned. Chuyển Staff Save sang batch write kèm rollback snapshot khi lưu tiến độ. |
 | 2026-06-08 | v4.4.15 | Fix Firestore Update Permission | Sửa lỗi `Missing or insufficient permissions` khi nhân viên cập nhật trạng thái công việc (status = Completed) hoặc lưu tiến độ. Cho phép các trường id, isFixed, requiredCount, coefficient đi kèm trong payload cập nhật nhưng cấm thay đổi giá trị. |
 | 2026-06-05 | v4.4.14 | Optimize Column Width Proportions | Set Daily view table columns layout: Tên lớp (50%), Buổi (10%), Bắt đầu (12%), Kết thúc (12%), Link (16%). |

@@ -3,6 +3,21 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.17] - 2026-06-11 🚀 Phân công Hàng ngày & Sửa đổi Nghỉ bù
+**Summary:** Chuyển đổi tính năng Phân công Hàng ngày sang mô hình cập nhật trực tiếp số lượng phân công lũy kế và dứt điểm lỗi hiển thị nghỉ bù trùng lặp của Nguyễn Thị Ngân.
+
+### Added
+- **Tích hợp Số lũy kế Phân công:** Ô nhập liệu cột "Phân công" (trước đây là "Chia mới") trong DailyAllocation hiển thị trực tiếp và cho phép điều chỉnh (tăng/giảm) số lượng lũy kế phân công của ngày hôm nay.
+
+### Changed
+- **Ẩn Label "Đã chia":** Xóa dòng chữ phụ hiển thị `Đã chia: X` bên dưới ô nhập để tối ưu hóa không gian hiển thị bảng phân công.
+- **Cơ chế lưu trữ:** Bỏ cơ chế rollover tự động cộng dồn đợt phân công khi lưu. `handleSave` cập nhật trực tiếp giá trị `assigned` lên database và gán `newAssigned = 0`.
+- **Tương thích ngược báo cáo:** Báo cáo năng suất (`useReports.ts`) tự động cộng gộp `assigned + newAssigned` để hiển thị đúng số liệu cho cả dữ liệu lịch sử và dữ liệu mới.
+
+### Fixed
+- **Trùng lặp nghỉ bù khi đổi lịch:** Cập nhật `useMyTasks.ts` tự động tìm và xóa sạch vé `JOB_NGHI_BU` cũ khi dời lịch nghỉ bù. Cập nhật `schedulerEngine.ts` kiểm tra chặt chẽ các vé nghỉ bù đã đổi lịch để ngăn auto-scheduler tự phục hồi ca nghỉ cũ.
+- **Dọn dẹp dữ liệu:** Quét và loại bỏ hoàn toàn các tài liệu nghỉ bù lỗi bị trùng lặp của Nguyễn Thị Ngân (`emp_2`) và nhân sự `emp_8` trên database live.
+
 ## [4.4.16] - 2026-06-08 🔧 Daily Allocation Stability & Security Fixes
 **Summary:** Bốn bản sửa lỗi từ kết quả self-review tính năng Phân công hàng ngày: loại bỏ code trùng lặp, vá lỗ hổng bảo mật Firestore Rules, thêm rollback cho staff save, và sửa lỗi array mutation.
 

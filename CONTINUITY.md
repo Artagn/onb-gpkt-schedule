@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 4.4.16 | **Last Updated:** 2026-06-08
+> **Version:** 4.4.17 | **Last Updated:** 2026-06-11
 
 ---
 
@@ -171,6 +171,10 @@ App.tsx                    # Root + Provider + Router
 > **jobGroups Firestore Rules (v3.19.6):** Collection `jobGroups` đã được thêm vào `firestore.rules`. `useJobGroupsQuery` có default fallback (Đào tạo, Livechat, Chia hàng ngày, Chăm sóc KH, Khác) nếu collection chưa tồn tại trong Firestore.
 
 ### 2.3 Performance Optimization
+- **v4.4.17 Phân công Hàng ngày & Sửa đổi Nghỉ bù:**
+    - **Cumulative Allocation Editing:** Thay thế mô hình rollover hai bước (Chia mới/Reset về 0) bằng chỉnh sửa trực tiếp số lượng phân công lũy kế `assigned` trong ô nhập liệu Daily Allocation. Tiết kiệm không gian hiển thị do loại bỏ nhãn "Đã chia" phụ.
+    - **Report Backward Compatibility:** Tổng hợp `assigned` và `newAssigned` ở phía client báo cáo giúp hiển thị thống nhất dữ liệu lịch sử và dữ liệu mới mà không cần migration dữ liệu.
+    - **Compensatory Leave Scheduler Protection:** Tích hợp chốt chặn tự động nhận diện đơn nghỉ bù đã dời lịch của nhân sự (qua token `[Đã đổi]`) ở scheduler engine để ngăn việc tự động tạo lại các ca nghỉ cũ.
 - **v4.4.16 Shared Allocation Merge & Staff Save Hardening:**
     - **Shared Allocation Merge Utility:** Tách logic hợp nhất phân công (`deduplicateAllocations`, `mergeAllocationsWithLocal`) thành file utility dùng chung [allocationMerge.ts](file:///d:/ONB%20App/Calender/utils/allocationMerge.ts), loại bỏ hơn 120 dòng code trùng lặp ở `useDailyAllocation.ts` (Coordinator) và `useMyTasks.ts` (Staff).
     - **Staff Save Batch Write & Rollback:** Tái cấu trúc logic lưu tiến độ trong `useMyTasks.ts` từ việc lưu lẻ tẻ bằng `Promise.all` sang sử dụng `writeBatch` thông qua `allocationsService.saveAll`. Bổ sung snapshot local state để rollback tự động khi ghi DB gặp lỗi.

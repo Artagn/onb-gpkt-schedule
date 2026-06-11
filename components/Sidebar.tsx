@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUserRole, isOpen, onClose, isC
                             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent">
                                 ONB GPKT
                             </h1>
-                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v4.4.16</p>
+                            <p className="text-xs text-slate-400 mt-1">Schedule Manager v4.4.17</p>
                         </div>
                     )}
                     {isCollapsed && (
