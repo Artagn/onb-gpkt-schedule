@@ -136,10 +136,11 @@ const PublicDailySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, j
                     <table className="w-full text-xs md:text-sm">
                         <thead className="bg-gray-50 border-b">
                             <tr>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-700">Tên lớp</th>
-                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">Buổi</th>
-                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">Thời gian</th>
-                                <th className="px-3 py-2 text-right font-semibold text-gray-700 w-24">Link</th>
+                                <th className="px-3 py-2 text-left font-semibold text-gray-700 w-1/2">Tên lớp</th>
+                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-[10%]">Buổi</th>
+                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-[12%]">Bắt đầu</th>
+                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-[12%]">Kết thúc</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-700 w-[16%]">Link</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -159,7 +160,10 @@ const PublicDailySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, j
                                         </span>
                                     </td>
                                     <td className="px-2 py-2 text-center text-gray-600 font-mono text-[11px] md:text-xs">
-                                        {entry.startTime} - {entry.endTime}
+                                        {entry.startTime}
+                                    </td>
+                                    <td className="px-2 py-2 text-center text-gray-600 font-mono text-[11px] md:text-xs">
+                                        {entry.endTime}
                                     </td>
                                     <td className="px-3 py-2 text-right">
                                         {entry.link ? (

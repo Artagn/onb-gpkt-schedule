@@ -202,11 +202,11 @@ const DailyAllocationView: React.FC<Props> = ({
                                 <th key={job.id} className="p-2 border text-center min-w-[320px] bg-blue-50/80 backdrop-blur-sm">
                                     <div className="font-bold text-blue-800">{job.name}</div>
                                     <div className="grid grid-cols-5 text-xs font-semibold mt-1 gap-1 text-gray-700">
-                                        <span className="bg-yellow-100 font-bold text-black border rounded px-1" title="Nhập số lượng chia mới">Chia mới</span>
+                                        <span className="bg-yellow-100 font-bold text-black border rounded px-1" title="Nhập số lượng phân công (Đã chia)">Phân công</span>
                                         <span title="Đã hoàn thành">HT</span>
                                         <span className="bg-orange-50 text-orange-800 border-orange-200" title="Trả Kinh Doanh">Trả KD</span>
                                         <span className="bg-red-50 text-red-800 border-red-200" title="Trả Trưởng Phòng">Trả TP</span>
-                                        <span className="text-red-700 font-extrabold bg-red-50 border border-red-200 rounded" title="Tồn = Chia mới - (HT + Trả KD + Trả TP)">Tồn</span>
+                                        <span className="text-red-700 font-extrabold bg-red-50 border border-red-200 rounded" title="Tồn = Phân công - (HT + Trả KD + Trả TP)">Tồn</span>
                                     </div>
                                 </th>
                             ))}
@@ -219,9 +219,10 @@ const DailyAllocationView: React.FC<Props> = ({
                                 TỔNG CỘNG ({availableEmployees.length} NV)
                             </td>
                             {displayedJobs.map(job => {
-                                const totalData = { newAssigned: 0, completed: 0, returnedKD: 0, returnedTP: 0, pending: 0 };
+                                const totalData = { assigned: 0, newAssigned: 0, completed: 0, returnedKD: 0, returnedTP: 0, pending: 0 };
                                 availableEmployees.forEach(emp => {
                                     const d = getAllocationData(emp.id, job.id);
+                                    totalData.assigned += d.assigned;
                                     totalData.newAssigned += d.newAssigned;
                                     totalData.completed += d.completed;
                                     totalData.returnedKD += d.returnedKD;
@@ -232,7 +233,9 @@ const DailyAllocationView: React.FC<Props> = ({
                                 return (
                                     <td key={job.id} className="p-2 border bg-yellow-50/90 backdrop-blur-sm text-center">
                                         <div className="grid grid-cols-5 text-center text-xs items-center gap-1 font-bold">
-                                            <span className="text-blue-700 text-sm bg-blue-50 rounded px-1">{totalData.newAssigned}</span>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-blue-700 text-sm bg-blue-50 rounded px-1">{totalData.assigned}</span>
+                                            </div>
                                             <span className="text-green-700">{totalData.completed}</span>
                                             <span className="text-orange-700">{totalData.returnedKD}</span>
                                             <span className="text-red-700">{totalData.returnedTP}</span>
@@ -274,17 +277,19 @@ const DailyAllocationView: React.FC<Props> = ({
                                             return (
                                                 <td key={job.id} className="p-1 border text-center">
                                                     <div className="grid grid-cols-5 gap-1 items-center">
-                                                        {/* New Assigned */}
-                                                        <input
-                                                            type="number" min="0"
-                                                            value={data.newAssigned === 0 ? '' : data.newAssigned}
-                                                            disabled={isDisabled}
-                                                            onChange={(e) => handleAllocationChange(emp.id, job.id, 'newAssigned', parseInt(e.target.value) || 0)}
-                                                            className={`w-full text-center text-sm border-2 rounded py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all
-                                                                ${isDisabled ? 'bg-transparent border-transparent text-gray-400' : 'bg-white border-yellow-200 hover:border-yellow-400 text-blue-700'}
-                                                            `}
-                                                            placeholder="0"
-                                                        />
+                                                        {/* Assigned */}
+                                                        <div className="flex flex-col items-center">
+                                                            <input
+                                                                type="number" min="0"
+                                                                value={data.assigned === 0 ? '' : data.assigned}
+                                                                disabled={isDisabled}
+                                                                onChange={(e) => handleAllocationChange(emp.id, job.id, 'assigned', parseInt(e.target.value) || 0)}
+                                                                className={`w-full text-center text-sm border-2 rounded py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all
+                                                                    ${isDisabled ? 'bg-transparent border-transparent text-gray-400' : 'bg-white border-yellow-200 hover:border-yellow-400 text-blue-700'}
+                                                                `}
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
 
                                                         {/* Completed */}
                                                         <div className="text-xs text-green-600 font-medium">{data.completed || '-'}</div>
@@ -335,7 +340,7 @@ const DailyAllocationView: React.FC<Props> = ({
             {/* Footer */}
             <div className="p-3 bg-white border-t flex justify-between items-center text-xs shadow-inner">
                 <div className="flex gap-4 text-gray-600">
-                    <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-200 border rounded-sm"></span> Ô nhập liệu (Chia mới)</span>
+                    <span className="flex items-center gap-1"><span className="w-3 h-3 bg-yellow-200 border rounded-sm"></span> Ô nhập liệu (Phân công)</span>
                     <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-200 rounded-sm"></span> Tồn đọng (Cần xử lý)</span>
                 </div>
                 <span><span className="font-bold text-red-600">Lưu ý:</span> Bạn cần nhấn "Lưu thay đổi" (Góc phải trên) để ghi nhận dữ liệu.</span>

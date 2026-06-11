@@ -42,7 +42,8 @@ const PublicScheduleContainer: React.FC = () => {
             setError(null);
             try {
                 // Routing through Firebase Hosting rewrite to enable native CDN Edge Caching
-                const apiUrl = '/api/public-schedule';
+                // Query parameter acts as a version-based cache buster to bypass old misrouted HTML cache
+                const apiUrl = '/api/public-schedule?v=4.4.14';
                 
                 const response = await fetch(apiUrl);
                 if (!response.ok) {

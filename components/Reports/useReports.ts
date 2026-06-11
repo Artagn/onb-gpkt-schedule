@@ -260,7 +260,7 @@ export const useReports = ({ currentUserRole, user, fixedEmployeeId }: UseReport
 
             if (statsMap.has(alloc.employeeId)) {
                 const current = statsMap.get(alloc.employeeId)!;
-                current.newAssigned += (alloc.newAssigned || 0);
+                current.newAssigned += ((alloc.assigned || 0) + (alloc.newAssigned || 0));
                 current.completed += (alloc.completed || 0);
                 current.returnedKD += (alloc.returnedKD || 0);
                 current.returnedTP += (alloc.returnedTP || 0);

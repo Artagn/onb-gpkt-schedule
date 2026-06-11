@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-06-03  
-> **Version:** v4.4.8  
+> **Last Updated:** 2026-06-08  
+> **Version:** v4.4.16  
 > **Status:** ✅ Production
 
 ---
@@ -35,6 +35,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | **Components** | 15 modules + 7 standalone files |
 | **Hooks** | 19 custom hooks |
 | **Services** | 11 service files |
+| **Utils** | 4 utility files |
 
 ---
 
@@ -84,6 +85,14 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-06-08 | v4.4.16 | Shared Allocation Merge & Staff Save Hardening | Trích xuất utility dùng chung `utils/allocationMerge.ts`. Bảo mật hóa Firestore Rules cấm Staff sửa assigned/newAssigned. Chuyển Staff Save sang batch write kèm rollback snapshot khi lưu tiến độ. |
+| 2026-06-08 | v4.4.15 | Fix Firestore Update Permission | Sửa lỗi `Missing or insufficient permissions` khi nhân viên cập nhật trạng thái công việc (status = Completed) hoặc lưu tiến độ. Cho phép các trường id, isFixed, requiredCount, coefficient đi kèm trong payload cập nhật nhưng cấm thay đổi giá trị. |
+| 2026-06-05 | v4.4.14 | Optimize Column Width Proportions | Set Daily view table columns layout: Tên lớp (50%), Buổi (10%), Bắt đầu (12%), Kết thúc (12%), Link (16%). |
+| 2026-06-05 | v4.4.13 | Split Public Daily Time Column | Split the "Thời gian" column in Daily view table into "Bắt đầu" and "Kết thúc" columns for a cleaner layout. |
+| 2026-06-05 | v4.4.12 | API Cache Busting | Append query parameter `?v=4.4.12` to `/api/public-schedule` to bypass old misrouted HTML cache. |
+| 2026-06-05 | v4.4.11 | Fix Public Share Link Route | Change Hosting rewrite key from `id` to `functionId` for getPublicTrainingSchedule rewrite, preventing HTML fallback and SyntaxError. |
+| 2026-06-03 | v4.4.10 | Daily Allocation Rollover & Batch Save | Roll over newAssigned into assigned on save, reset input to 0, show cumulative "Đã chia: X" label, save via batch writes, and add logic rollback on failure. |
+| 2026-06-03 | v4.4.9 | Fix Coordination Cache Wiping Regression | Fix manual coordination cache wiping by refactoring real-time queryFn to return existing cache data (safe net Hướng A) and removing redundant invalidateQueries in Modals.tsx and useFixedSchedule.ts (clean net Hướng B). |
 | 2026-06-03 | v4.4.8 | Route Guard, Excel Batch Import & Timezones | Guard route-level, validate Excel row-by-row & lowercase emails, parseISO & localeCompare in Admin tools |
 | 2026-06-02 | v4.4.7 | Dashboard & Coordination Solidification | Đồng bộ hóa múi giờ an toàn toàn diện (parseISO), khắc phục vi phạm React Rules of Hooks, củng cố tính atomicity cho các tác vụ lưu và copy-paste lịch trực, tối ưu hiệu năng O(1) busyMap và nâng cấp số phiên bản đồng bộ sang v4.4.7. |
 | 2026-06-02 | v4.1.0 | Cloud Function approveSwapRequest & Secure firestore.rules RBAC Overhaul | Chuyển đổi logic duyệt Đổi lịch sang Cloud Function (transaction atomic), siết chặt 100% Rules bảo mật Firestore qua bảng tra cứu user_roles có lối thoát Super Admin, tích hợp Panel chạy migration, và chuẩn hóa date format operational. |
@@ -132,7 +141,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | **Types** | `types.ts` | 28 TypeScript interfaces (364 lines) |
 | **Schemas** | `schemas.ts` | Zod validation schemas |
 | **Common** | `components/common/` | ColorLegend, ConfirmModal, GlobalErrorBoundary, EmptyState |
-| **Utils** | `utils/` | evaluationHelpers.ts, evaluationValidation.ts, permissions.ts |
+| **Utils** | `utils/` | evaluationHelpers.ts, evaluationValidation.ts, permissions.ts, allocationMerge.ts |
 
 ---
 

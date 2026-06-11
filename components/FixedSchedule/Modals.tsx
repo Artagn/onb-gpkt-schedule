@@ -261,8 +261,6 @@ export const AssignModal: React.FC<AssignModalProps> = ({
 
         queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, nextSchedule);
         await Promise.all(updates);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
-        queryClient.invalidateQueries({ queryKey: LEAVE_KEYS.all });
     };
 
     // Toggle status between Pending and Completed
@@ -278,7 +276,6 @@ export const AssignModal: React.FC<AssignModalProps> = ({
 
         queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, nextSchedule);
         await scheduleService.save(updated);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
 
         // Invalidate leave balance caches (Cloud Function will update balance)
         item.employeeIds.forEach(empId => {
@@ -324,7 +321,6 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         }
         queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, nextSchedule);
         await Promise.all(updates);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
     };
 
     const handleManualAdd = async () => {
@@ -353,8 +349,6 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         setAdHocJobId('');
         setManualCoefficient(1);
         await Promise.all(updates);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
-        queryClient.invalidateQueries({ queryKey: LEAVE_KEYS.all });
     };
 
     const handleApproveLeave = async () => {
@@ -372,8 +366,6 @@ export const AssignModal: React.FC<AssignModalProps> = ({
         queryClient.setQueryData<LeaveRequest[]>(LEAVE_KEYS.all, (old = []) => old.map(l => l.id === pendingLeave.id ? updatedLeave : l));
         updates.push(leavesService.save(updatedLeave));
         await Promise.all(updates);
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
-        queryClient.invalidateQueries({ queryKey: LEAVE_KEYS.all });
         toast.success(`Đã duyệt đơn nghỉ. ${emp?.fullName} đã được gỡ khỏi các công việc.`);
     };
 

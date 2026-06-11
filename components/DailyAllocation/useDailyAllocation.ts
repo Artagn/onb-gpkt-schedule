@@ -11,6 +11,7 @@ import { allocationsService, auditService } from '../../services/firestoreServic
 import { auth } from '../../services/firebaseConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { ALLOCATION_KEYS } from '../../hooks/useAllocationsQuery';
+import { mergeAllocationsWithLocal } from '../../utils/allocationMerge';
 
 export type DatePreset = 'today' | 'yesterday' | 'tomorrow' | 'thisWeek' | 'lastWeek' | 'nextWeek' | 'thisMonth' | 'lastMonth' | 'nextMonth' | 'custom';
 
@@ -55,9 +56,10 @@ export const useDailyAllocation = ({
     const [showFilter, setShowFilter] = useState(false);
     const [visibleJobIds, setVisibleJobIds] = useState<string[]>([]);
 
-    // Sync local state
+    // Sync local state with real-time allocations from database
+    // Uses shared mergeAllocationsWithLocal utility to prevent code duplication with useMyTasks
     useEffect(() => {
-        setLocalAllocations(allocations);
+        setLocalAllocations(prev => mergeAllocationsWithLocal(allocations, prev));
     }, [allocations]);
 
     // Daily jobs only
@@ -190,29 +192,36 @@ export const useDailyAllocation = ({
     const handleAllocationChange = (empId: string, jobId: string, field: keyof DailyAllocation, value: number) => {
         if (!isSingleDay) return;
 
+        // Find existing or generate deterministic ID to prevent ID drift and StrictMode mismatch
+        const existingItem = localAllocations.find(a => a.employeeId === empId && a.jobId === jobId && a.date === fromDateStr);
+        const itemId = existingItem ? existingItem.id : `${empId}_${jobId}_${fromDateStr}`;
+
         setLocalAllocations(prev => {
-            const existingIndex = prev.findIndex(a => a.employeeId === empId && a.jobId === jobId && a.date === fromDateStr);
+            const existingIndex = prev.findIndex(a => a.id === itemId);
             if (existingIndex > -1) {
                 const updated = [...prev];
                 updated[existingIndex] = { ...updated[existingIndex], [field]: value };
-                setDirtyIds(ids => new Set(ids).add(updated[existingIndex].id));
                 return updated;
             } else {
-                const newId = `alloc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                 const newItem: DailyAllocation = {
-                    id: newId,
+                    id: itemId,
                     date: fromDateStr,
                     employeeId: empId,
                     jobId,
-                    assigned: 0,
-                    newAssigned: field === 'newAssigned' ? value : 0,
+                    assigned: field === 'assigned' ? value : 0,
+                    newAssigned: 0,
                     completed: 0,
                     returnedKD: field === 'returnedKD' ? value : 0,
                     returnedTP: field === 'returnedTP' ? value : 0
                 };
-                setDirtyIds(ids => new Set(ids).add(newId));
                 return [...prev, newItem];
             }
+        });
+
+        setDirtyIds(ids => {
+            const next = new Set(ids);
+            next.add(itemId);
+            return next;
         });
         setIsDirty(true);
     };
@@ -225,29 +234,82 @@ export const useDailyAllocation = ({
             return;
         }
 
-        toast.promise(
-            Promise.all(itemsToSave.map(item => allocationsService.save(item))).then(() => {
-                queryClient.invalidateQueries({ queryKey: ALLOCATION_KEYS.all });
-            }),
-            {
-                loading: 'Đang lưu phân công...',
-                success: 'Đã lưu phân công thành công!',
-                error: 'Lỗi khi lưu dữ liệu'
-            }
-        );
+        // Keep snapshot of the original local allocations and dirtyIds for rollback if fail
+        const previousAllocations = [...localAllocations];
+        const previousDirtyIds = new Set(dirtyIds);
 
-        if (auth.currentUser) {
-            auditService.log(
-                'UPDATE_ALLOCATION',
-                'ALLOCATION',
-                'DAILY',
-                { date: fromDateStr, count: itemsToSave.length, docIds: itemsToSave.map(i => i.id) },
-                auth.currentUser.email || 'unknown'
-            );
-        }
+        // Identify duplicate document IDs in the original Firestore allocations that need to be deleted.
+        // We delete any documents that have matching {employeeId, jobId, date} but a different ID
+        // than the target deterministic ID (which is `${employeeId}_${jobId}_${date}`).
+        const duplicateIdsToDelete: string[] = [];
+        itemsToSave.forEach(item => {
+            const deterministicId = `${item.employeeId}_${item.jobId}_${item.date}`;
+            allocations.forEach(a => {
+                if (a.employeeId === item.employeeId && a.jobId === item.jobId && a.date === item.date && a.id !== deterministicId) {
+                    duplicateIdsToDelete.push(a.id);
+                }
+            });
+        });
 
+        // Enforce deterministic ID format and ensure newAssigned remains 0
+        const itemsWithUpdates = itemsToSave.map(item => {
+            const deterministicId = `${item.employeeId}_${item.jobId}_${item.date}`;
+            return {
+                ...item,
+                id: deterministicId,
+                newAssigned: 0
+            };
+        });
+
+        // Sync local state buffer and reset dirty state synchronously to disable double-clicks
+        setLocalAllocations(prev => {
+            return prev.map(a => {
+                const isItemToSave = itemsToSave.some(item => item.id === a.id);
+                if (isItemToSave) {
+                    const deterministicId = `${a.employeeId}_${a.jobId}_${a.date}`;
+                    return {
+                        ...a,
+                        id: deterministicId,
+                        newAssigned: 0
+                    };
+                }
+                return a;
+            });
+        });
         setDirtyIds(new Set());
         setIsDirty(false);
+
+        // Save via batch writes (saveAll) first (upsert-first)
+        // If it succeeds, delete the old duplicate documents in Firestore (delete-second)
+        try {
+            // 1. Save new/merged documents using deterministic IDs
+            await allocationsService.saveAll(itemsWithUpdates);
+
+            // 2. Delete duplicate/old documents
+            if (duplicateIdsToDelete.length > 0) {
+                await Promise.all(duplicateIdsToDelete.map(id => allocationsService.delete(id)));
+            }
+
+            toast.success('Đã lưu phân công thành công!');
+
+            if (auth.currentUser) {
+                auditService.log(
+                    'UPDATE_ALLOCATION',
+                    'ALLOCATION',
+                    'DAILY',
+                    { date: fromDateStr, count: itemsToSave.length, docIds: itemsWithUpdates.map(i => i.id) },
+                    auth.currentUser.email || 'unknown'
+                );
+            }
+        } catch (error) {
+            console.error("Failed to save allocations:", error);
+            toast.error('Lỗi khi lưu dữ liệu. Đã hoàn tác phân công.');
+            
+            // Rollback states
+            setLocalAllocations(previousAllocations);
+            setDirtyIds(previousDirtyIds);
+            setIsDirty(true);
+        }
     };
 
     // ========== DATA HELPERS ==========
@@ -267,8 +329,8 @@ export const useDailyAllocation = ({
         }), { assigned: 0, newAssigned: 0, completed: 0, returnedKD: 0, returnedTP: 0 });
     };
 
-    const calculatePending = (alloc: { newAssigned: number; completed: number; returnedKD: number; returnedTP: number }) => {
-        return alloc.newAssigned - (alloc.completed + alloc.returnedKD + alloc.returnedTP);
+    const calculatePending = (alloc: { assigned: number; newAssigned: number; completed: number; returnedKD: number; returnedTP: number }) => {
+        return (alloc.assigned + alloc.newAssigned) - (alloc.completed + alloc.returnedKD + alloc.returnedTP);
     };
 
     const getEmployeeRowClass = (empId: string) => {

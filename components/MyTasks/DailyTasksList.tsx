@@ -27,7 +27,7 @@ const DailyTasksList: React.FC<Props> = ({
     filterJobIds, setFilterJobIds, handleUpdateProgress
 }) => {
 
-    const sortedAllocations = myDailyAllocations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedAllocations = [...myDailyAllocations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const dailyJobsList = jobs.filter(j => j.group === 'Chia hàng ngày' && j.isActive);
 
     const getJob = (id: string) => jobs.find(j => j.id === id);

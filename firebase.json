@@ -29,7 +29,7 @@
             {
                 "source": "/api/public-schedule",
                 "function": {
-                    "id": "getPublicTrainingSchedule",
+                    "functionId": "getPublicTrainingSchedule",
                     "region": "asia-southeast1"
                 }
             },

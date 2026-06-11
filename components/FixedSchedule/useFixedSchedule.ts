@@ -228,10 +228,6 @@ export const useFixedSchedule = (
             await deleteBatch(COLLECTIONS.LEAVES, leaveIds);
         }
 
-        // Invalidate Queries
-        queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
-        queryClient.invalidateQueries({ queryKey: LEAVE_KEYS.all });
-
         toast.success(`Đã xóa ${scheduleIds.length} mục lịch và ${leaveIds.length} đơn nghỉ tự động.`);
     };
 
@@ -342,9 +338,6 @@ export const useFixedSchedule = (
             );
 
             toast.success(`Xếp lịch hoàn tất! ${previewResult.stats.filledSlots}/${previewResult.stats.totalSlots} slot.`, { id: toastId });
-
-            // Invalidate after massive auto-schedule
-            queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
 
             // Close preview modal
             setShowPreviewModal(false);
@@ -539,7 +532,6 @@ export const useFixedSchedule = (
         if (newItems.length > 0) {
             queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, (old = []) => [...old, ...newItems]);
             await scheduleService.saveAll(newItems);
-            queryClient.invalidateQueries({ queryKey: SCHEDULE_KEYS.all });
             toast.success(`Đã paste ${newItems.length} công việc`);
         } else {
             toast.error('Không có công việc hợp lệ để paste');

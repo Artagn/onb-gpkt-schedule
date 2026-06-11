@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 4.4.8 | **Last Updated:** 2026-06-03
+> **Version:** 4.4.16 | **Last Updated:** 2026-06-08
 
 ---
 
@@ -143,7 +143,8 @@ App.tsx                    # Root + Provider + Router
 └── utils/                 # Utilities
     ├── evaluationHelpers.ts  # Shared difficulty config helpers
     ├── evaluationValidation.ts # Zod schemas for forms
-    └── permissions.ts       # Permission helpers
+    ├── permissions.ts       # Permission helpers
+    └── allocationMerge.ts   # Shared allocation merge utilities (v4.4.16)
 ```
 
 ### 2.2 Data Flow (TanStack Query v5 + Hybrid Real-Time)
@@ -170,6 +171,19 @@ App.tsx                    # Root + Provider + Router
 > **jobGroups Firestore Rules (v3.19.6):** Collection `jobGroups` đã được thêm vào `firestore.rules`. `useJobGroupsQuery` có default fallback (Đào tạo, Livechat, Chia hàng ngày, Chăm sóc KH, Khác) nếu collection chưa tồn tại trong Firestore.
 
 ### 2.3 Performance Optimization
+- **v4.4.16 Shared Allocation Merge & Staff Save Hardening:**
+    - **Shared Allocation Merge Utility:** Tách logic hợp nhất phân công (`deduplicateAllocations`, `mergeAllocationsWithLocal`) thành file utility dùng chung [allocationMerge.ts](file:///d:/ONB%20App/Calender/utils/allocationMerge.ts), loại bỏ hơn 120 dòng code trùng lặp ở `useDailyAllocation.ts` (Coordinator) và `useMyTasks.ts` (Staff).
+    - **Staff Save Batch Write & Rollback:** Tái cấu trúc logic lưu tiến độ trong `useMyTasks.ts` từ việc lưu lẻ tẻ bằng `Promise.all` sang sử dụng `writeBatch` thông qua `allocationsService.saveAll`. Bổ sung snapshot local state để rollback tự động khi ghi DB gặp lỗi.
+    - **Avoid State Mutation:** Sửa lỗi đột biến dữ liệu reactive ở component bằng cách clone mảng `[...myDailyAllocations].sort()` trước khi sắp xếp trong `DailyTasksList.tsx`.
+- **v4.4.10 Daily Allocation Rollover & Batch Save:**
+    - **Optimistic Rollover & Reset:** Automatically moves `newAssigned` (Chia mới) into `assigned` (Đã chia) and resets `newAssigned` to `0` upon saving. Local state is updated and disabled synchronously (clearing `dirtyIds` / `isDirty`) to prevent double-clicks.
+    - **State Rollback Safeguard:** Snapshot-based local rollback restores state and re-enables edits if the database write fails.
+    - **Single Batch Write:** Unified multiple database writes into a single Firestore `writeBatch` call (`allocationsService.saveAll`), removing N+1 write overhead.
+    - **Query Invalidation Cleanup:** Removed `invalidateQueries` call since the real-time `onSnapshot` subscription automatically streams the database state.
+- **v4.4.9 Fixed Reactivity Cache Wiping during Manual Coordination:**
+    - **Safe queryFn Net:** Refactored `useSchedulesRealtimeQuery`, `useLeavesRealtimeQuery`, and `useAllocationsRealtimeQuery`'s `queryFn` to return the existing query cache data (`queryClient.getQueryData(queryKey) || []`) instead of an empty array. This serves as a global safety net, preventing cache invalidation from wiping the active local cache data.
+    - **Redundancy Invalidation Cleanup:** Cleaned up redundant `invalidateQueries` calls for `SCHEDULE` and `LEAVE` collections across manual coordination handlers in `Modals.tsx` and `useFixedSchedule.ts` to avoid redundant refetch cycles, since `onSnapshot` subscriptions naturally handle cache synchronization.
+    - **Non-Realtime Invalidation Preservation:** Kept invalidation calls for non-realtime dependencies (`LEAVE_BALANCE_KEYS` and `LEAVE_BALANCE_HISTORY_KEYS`) to ensure Cloud Function updates of balances continue to refresh immediately in the UI.
 - **v4.0.0 React 19 Context Splitting & Real-time Parsing Cache:**
     - **4-Context Splitting:** Phân rã God Context thành 4 Context cô lập (`ConfigContext`, `RealtimeContext`, `SyncContext`, `SessionContext`). Các hook chuyên dụng (`useSession()`, `useSyncStatus()`) giúp các component điều hướng Layout và trang cấu hình tĩnh không bị re-render rò rỉ khi Firestore cập nhật.
     - **Zod Parsed Cache closure (docChanges):** Tích hợp Map `parsedCache` trong closure của subscriber `subscribeToCollectionWithDateRange` kết hợp `snapshot.docChanges()`. Chỉ validate Zod các tài liệu thực sự thay đổi trong delta push, map trả dữ liệu đầy đủ tốc độ $O(1)$ mà không tốn chi phí stringify hay re-parse.
@@ -213,6 +227,8 @@ App.tsx                    # Root + Provider + Router
 | **Staff** | Self-Service - View schedule, My Tasks | Tra cứu vai trò động (`getUserEmployeeId()`). Có quyền chỉnh sửa có giới hạn trường (`status`, `note`, `customerParticipants`, v.v.) qua helper `affectedKeys().hasOnly()`. |
 
 **Bảo mật Firestore Rules:**
+- **Staff Update Payload & Allocation Guards (v4.4.16):** Siết chặt quyền bảo mật trên collection `allocations`. Nhân viên chỉ có quyền cập nhật tiến độ công việc cá nhân (`completed`, `returnedKD`, `returnedTP`) và bị cấm tuyệt đối chỉnh sửa lượng ca/việc được giao (`assigned` và `newAssigned`). Thêm điều kiện kiểm tra equality `request.resource.data.assigned == resource.data.assigned` và `request.resource.data.newAssigned == resource.data.newAssigned` vào `firestore.rules` để ngăn chặn nhân viên tự ý thay đổi số ca phân công bằng DevTools.
+- **Staff Update Payload (v4.4.15):** Cho phép các trường read-only/default (`id`, `isFixed`, `requiredCount`, `coefficient`) đi kèm trong payload cập nhật của nhân viên khi thực hiện các tác vụ cập nhật schedule/allocation. Các rules đã được tăng cường để so sánh giá trị cũ và mới, đảm bảo nhân viên không thể thay đổi giá trị thực tế của các trường này nếu chúng đã được cấu hình trong database.
 - **Null-email Token Guard:** Mọi hàm tra cứu email đều được bảo vệ bằng kiểm tra `request.auth.token.email != null` và fallback `'no-email'` để tránh engine-level crash khi token không chứa email.
 - **Bảng tra cứu `/user_roles`:** Được đồng bộ tự động từ `employees` thông qua trigger `onEmployeeWrite` (Cloud Function) và lưu trữ dưới dạng email được viết thường và cắt khoảng trắng (`email.toLowerCase().trim()`). Chỉ có Admin SDK của Cloud Functions được quyền ghi vào đây.
 - **Route-level UX Guards (v4.4.8):** Restricts route entries to `/config` and `/admin` in `App.tsx` directly, preventing Staff from hitting administrative views.

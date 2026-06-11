@@ -130,7 +130,7 @@ export const useSchedulesRealtimeQuery = (
         queryKey: SCHEDULE_QUERY_KEY,
         queryFn: async () => {
             if (snapshotError) throw snapshotError;
-            return [] as ScheduleItem[]; // optimized startup reads: onSnapshot is sole source
+            return queryClient.getQueryData<ScheduleItem[]>(SCHEDULE_QUERY_KEY) || [];
         },
         enabled,
         staleTime: Infinity,
@@ -180,7 +180,7 @@ export const useLeavesRealtimeQuery = (
         queryKey: LEAVES_QUERY_KEY,
         queryFn: async () => {
             if (snapshotError) throw snapshotError;
-            return [] as LeaveRequest[];
+            return queryClient.getQueryData<LeaveRequest[]>(LEAVES_QUERY_KEY) || [];
         },
         enabled,
         staleTime: Infinity,
@@ -230,7 +230,7 @@ export const useAllocationsRealtimeQuery = (
         queryKey: ALLOCATIONS_QUERY_KEY,
         queryFn: async () => {
             if (snapshotError) throw snapshotError;
-            return [] as DailyAllocation[];
+            return queryClient.getQueryData<DailyAllocation[]>(ALLOCATIONS_QUERY_KEY) || [];
         },
         enabled,
         staleTime: Infinity,

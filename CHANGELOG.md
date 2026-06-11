@@ -3,6 +3,80 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.16] - 2026-06-08 🔧 Daily Allocation Stability & Security Fixes
+**Summary:** Bốn bản sửa lỗi từ kết quả self-review tính năng Phân công hàng ngày: loại bỏ code trùng lặp, vá lỗ hổng bảo mật Firestore Rules, thêm rollback cho staff save, và sửa lỗi array mutation.
+
+### Refactored
+- **[NEW] `utils/allocationMerge.ts`:** Trích xuất ~120 dòng logic merge/dedup allocation trùng lặp giữa `useDailyAllocation.ts` và `useMyTasks.ts` thành shared utility `mergeAllocationsWithLocal()`, ngăn ngừa rủi ro sửa bug 1 chỗ mà quên chỗ kia.
+- **`useDailyAllocation.ts`:** Thay thế inline merge logic bằng lệnh gọi `mergeAllocationsWithLocal()` từ shared utility.
+- **`useMyTasks.ts`:** Thay thế inline merge logic tương tự, đồng bộ với coordinator hook.
+
+### Fixed (Security)
+- **`firestore.rules` (Allocation Update):** Thêm equality check cho `assigned` và `newAssigned` — chặn nhân viên sửa số lượng phân công qua DevTools. Trước đây whitelist cho phép thay đổi các trường này.
+
+### Fixed (Data Integrity)
+- **`useMyTasks.ts` (`handleSaveProgress`):** Chuyển từ `Promise.all(save())` (non-atomic) sang `saveAll()` (writeBatch, atomic). Thêm snapshot-based rollback khi save thất bại — trước đây dirty state bị clear bất kể thành công hay thất bại.
+- **`DailyTasksList.tsx`:** Sửa `Array.sort()` mutate mảng gốc — dùng `[...arr].sort()` để đảm bảo immutability.
+
+## [4.4.15] - 2026-06-08 🐛 Fix Firestore Update Permission for Staff
+**Summary:** Sửa lỗi phân quyền `FirebaseError: Missing or insufficient permissions` khi nhân viên bấm "Hoàn thành công việc" (status = Completed) hoặc lưu tiến độ. Hỗ trợ gửi các trường tùy chọn/mặc định (id, isFixed, requiredCount, coefficient) trong payload cập nhật của nhân viên khi các trường này không thay đổi hoặc được khởi tạo.
+
+### Fixed
+- **firestore.rules (Schedule Update):** Cho phép các trường `id`, `isFixed`, `requiredCount`, và `coefficient` có trong danh sách affected keys của bản ghi schedule đối với nhân viên (Staff), đồng thời bổ sung các ràng buộc bảo mật để đảm bảo nhân viên không thể thay đổi giá trị của các trường này.
+- **firestore.rules (Allocation Update):** Cho phép trường `id` trong danh sách affected keys của bản ghi allocation, đảm bảo nhân viên có thể lưu tiến độ công việc một cách bình thường khi client gửi kèm trường `id`.
+
+## [4.4.14] - 2026-06-05 ⚡ Optimize Column Width Proportions
+**Summary:** Điều chỉnh tỷ lệ cột bảng Lịch Đào Tạo Hàng Ngày giúp "Tên lớp" chiếm 50% chiều rộng bảng, các cột còn lại (Buổi, Bắt đầu, Kết thúc, Link) phân bổ đều phần 50% còn lại.
+
+### Changed
+- **PublicDailySchedule Header Widths:** Đặt tỷ lệ cột: Tên lớp (50%), Buổi (10%), Bắt đầu (12%), Kết thúc (12%), Link (16%).
+- **Cache Buster:** Nâng cấp tham số cache buster thành `?v=4.4.14` để trình duyệt áp dụng giao diện mới.
+
+## [4.4.13] - 2026-06-05 ⚡ Split Public Daily Time Column
+**Summary:** Phân tách cột "Thời gian" trong bảng Lịch Đào Tạo Hàng Ngày thành hai cột riêng biệt "Bắt đầu" và "Kết thúc" giúp cân đối tỷ lệ hiển thị và dễ nhìn hơn.
+
+### Changed
+- **PublicDailySchedule Table Layout:** Thay thế cột "Thời gian" hiển thị dạng `HH:MM - HH:MM` bằng 2 cột "Bắt đầu" và "Kết thúc" hiển thị giờ riêng biệt.
+- **Cache Buster:** Nâng cấp tham số cache buster thành `?v=4.4.13` để đảm bảo trình duyệt cập nhật layout mới tức thì.
+
+## [4.4.12] - 2026-06-05 ⚡ API Cache Busting & Versioning
+**Summary:** Bổ sung tham số phiên bản `?v=4.4.12` vào API URL `/api/public-schedule` ở frontend nhằm phá cache trình duyệt/CDN chứa phản hồi lỗi HTML cũ.
+
+### Changed
+- **API Cache Buster:** Thay đổi URL gọi dữ liệu lịch công khai thành `/api/public-schedule?v=4.4.12` giúp trình duyệt và CDN bỏ qua các bản ghi cache lỗi trước đó, đồng thời vẫn bảo đảm khả năng cache CDN bình thường đối với phiên bản hiện tại.
+
+## [4.4.11] - 2026-06-05 🐛 Fix Public Share Link API Route
+**Summary:** Sửa lỗi cấu hình rewrite Firebase Hosting của API công khai `/api/public-schedule` (thay `id` bằng `functionId`), khắc phục lỗi "Unexpected token <" do route bị fall back về `index.html`.
+
+### Fixed
+- **Firebase Hosting Rewrite:** Đổi trường `id` thành `functionId` trong cấu hình `hosting.rewrites` của `firebase.json` giúp Hosting định tuyến chính xác tới Cloud Function `getPublicTrainingSchedule` ở vùng `asia-southeast1`.
+
+## [4.4.10] - 2026-06-03 ⚡ Daily Allocation Multi-Batch Rollover & Batch Save
+**Summary:** Hỗ trợ quy trình phân công việc hàng ngày chia làm nhiều đợt trong ngày, tự động chuyển lượng chia mới thành tích lũy sau khi lưu và reset ô gõ về 0, tối ưu hóa lưu lượng ghi DB và khắc phục sai lệch tính tồn.
+
+### Added
+- **Đã chia Helper Label:** Hiển thị số lượng đã giao trước đó (`Đã chia: X`) bên dưới ô nhập Chia mới trong từng dòng và summary cell.
+- **Rollback Safeguard:** Cơ chế khôi phục trạng thái local (rollback) khi lưu xuống DB thất bại.
+
+### Fixed
+- **Input reset kẹt số:** Tự động cộng dồn `newAssigned` vào `assigned` và reset `newAssigned = 0` khi lưu thành công $\rightarrow$ giải phóng ô nhập để Coordinator gõ số mới bắt đầu từ 0 cho đợt tiếp theo.
+- **Tồn calculation:** Sửa công thức tính Tồn cộng thêm cả `assigned` cũ: `(assigned + newAssigned) - (HT + Trả KD + Trả TP)`.
+- **Database Write Optimization:** Thay thế N+1 saves bằng batch write duy nhất `allocationsService.saveAll`, đồng thời dọn dẹp `invalidateQueries` thừa tương ứng với real-time stream.
+
+---
+
+## [4.4.9] - 2026-06-03 ⚡ Coordination Cache Wiping Regression Fix
+**Summary:** Sửa lỗi nghiêm trọng mất hiển thị lịch và đơn nghỉ trên bảng điều phối bằng cách tối ưu hóa queryFn (Hướng A) và làm sạch cơ chế invalidation của React Query (Hướng B).
+
+### Added
+- **Global queryFn Safeguard:** Refactored `useSchedulesRealtimeQuery`, `useLeavesRealtimeQuery`, và `useAllocationsRealtimeQuery` để `queryFn` trả về dữ liệu cache hiện tại (`getQueryData || []`) thay vì mảng rỗng `[]`, tạo lưới an toàn khi bị stale/invalidation.
+
+### Fixed
+- **Cache Wiping Bug:** Loại bỏ triệt để các lệnh `invalidateQueries` cho `SCHEDULE_KEYS.all` và `LEAVE_KEYS.all` tại các handler gán thủ công (`Modals.tsx`) và thao tác bảng (`useFixedSchedule.ts`) để tránh refetch thừa, giúp giao diện tự động đồng bộ tức thì thông qua luồng `onSnapshot` Firestore mà không bị nhấp nháy hoặc mất dữ liệu.
+- **Leave Balance Sync:** Giữ nguyên invalidations cho `LEAVE_BALANCE_KEYS` và `LEAVE_BALANCE_HISTORY_KEYS` để Cloud Functions cộng/trừ ví nghỉ bù vẫn tự động cập nhật số dư hiển thị mà không bị mất đồng bộ.
+
+---
+
 ## [4.4.8] - 2026-06-03 🛠️ Timezone Solidification & Excel Import Atomicity
 **Summary:** Đồng bộ hóa múi giờ an toàn cho WorkCalendarConfig và PublicDailySchedule, nâng cấp quy trình import Excel JobManager với validation toàn diện và atomic batch writes (saveAll), đồng thời loại bỏ lỗi logic `|| true` ở isActive.
 

@@ -12,6 +12,7 @@ import { useLeaveMutations } from '../../hooks/useLeavesQuery';
 import { useLeaveBalanceQuery } from '../../hooks/useLeaveBalanceQuery';
 import { useDateFilter, DatePreset } from '../../hooks/useDateFilter';
 import { useLeaveHandlers } from '../../hooks/useLeaveHandlers';
+import { mergeAllocationsWithLocal } from '../../utils/allocationMerge';
 
 export type { DatePreset } from '../../hooks/useDateFilter';
 export type TabType = 'overview' | 'fixed' | 'daily' | 'leave' | 'kpi' | 'market';
@@ -75,8 +76,10 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
     const [dirtyAllocationIds, setDirtyAllocationIds] = useState<Set<string>>(new Set());
     const [isDirty, setIsDirty] = useState(false);
 
+    // Sync local state with Firestore allocations
+    // Uses shared mergeAllocationsWithLocal utility to prevent code duplication with useDailyAllocation
     useEffect(() => {
-        setLocalAllocations(allocations);
+        setLocalAllocations(prev => mergeAllocationsWithLocal(allocations, prev));
     }, [allocations]);
 
     // Job Filter for Daily Tab
@@ -255,21 +258,53 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
         setIsDirty(true);
     };
 
-    const handleSaveProgress = () => {
+    const handleSaveProgress = async () => {
         const itemsToSave = localAllocations.filter(a => dirtyAllocationIds.has(a.id));
         if (itemsToSave.length === 0) {
             setIsDirty(false);
             return;
         }
 
-        // Parallel update manually for batch
-        const promises = itemsToSave.map(a => allocationsService.save(a));
-        toast.promise(Promise.all(promises).then(() => {
-            queryClient.invalidateQueries({ queryKey: ALLOCATION_KEYS.all });
-        }), { loading: 'Đang lưu...', success: 'Đã lưu tiến độ!', error: 'Lỗi lưu dữ liệu' });
+        // Snapshot state for rollback on failure
+        const previousAllocations = [...localAllocations];
+        const previousDirtyIds = new Set(dirtyAllocationIds);
 
+        // Identify duplicate document IDs in the original Firestore allocations that need to be deleted
+        const duplicateIdsToDelete: string[] = [];
+        itemsToSave.forEach(item => {
+            const deterministicId = `${item.employeeId}_${item.jobId}_${item.date}`;
+            allocations.forEach(a => {
+                if (a.employeeId === item.employeeId && a.jobId === item.jobId && a.date === item.date && a.id !== deterministicId) {
+                    duplicateIdsToDelete.push(a.id);
+                }
+            });
+        });
+
+        // Optimistically clear dirty state to prevent double-clicks
         setDirtyAllocationIds(new Set());
         setIsDirty(false);
+
+        // Save progress using batch write (atomic) instead of Promise.all (non-atomic)
+        try {
+            // 1. Save new/merged progress documents via batch write
+            await allocationsService.saveAll(itemsToSave);
+
+            // 2. Delete duplicate/old documents
+            if (duplicateIdsToDelete.length > 0) {
+                await Promise.all(duplicateIdsToDelete.map(id => allocationsService.delete(id)));
+            }
+
+            toast.success('Đã lưu tiến độ!');
+            queryClient.invalidateQueries({ queryKey: ALLOCATION_KEYS.all });
+        } catch (error) {
+            console.error("Failed to save progress:", error);
+            toast.error('Lỗi lưu dữ liệu. Dữ liệu chưa lưu vẫn được giữ nguyên.');
+
+            // Rollback to previous state
+            setLocalAllocations(previousAllocations);
+            setDirtyAllocationIds(previousDirtyIds);
+            setIsDirty(true);
+        }
     };
 
     const handleTaskAction = (status: 'Completed' | 'Cancelled') => {
@@ -355,34 +390,45 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
             const oldDateStr = format(parseISO(existingLeave.date), 'dd/MM/yyyy');
             let updatedLeave: LeaveRequest | undefined;
 
+            // If the reason already has "[Đã đổi]", keep it exactly as is to preserve the original date.
+            // Otherwise, if it has "[Tự động]", convert it to "[Đã đổi] Nghỉ bù từ DD/MM/YYYY".
+            const reason = existingLeave.reason.includes('[Đã đổi]')
+                ? existingLeave.reason
+                : existingLeave.reason.includes('[Tự động]')
+                    ? `[Đã đổi] Nghỉ bù từ ${oldDateStr}`
+                    : existingLeave.reason;
+
             // Find and construct updated leave
             updatedLeave = {
                 ...existingLeave,
                 date: editingAutoLeave.date,
                 shift: editingAutoLeave.shift,
                 status: 'Pending',
-                reason: (existingLeave.reason.includes('[Tự động]') || existingLeave.reason.includes('[Đã đổi]'))
-                    ? `[Đã đổi] Nghỉ bù từ ${oldDateStr}`
-                    : existingLeave.reason
+                reason
             };
 
             if (updatedLeave) leaveMutations.update.mutate(updatedLeave);
 
-            // 2.2 Update linked Schedule Item if it exists (for the OLD date)
+            // 2.2 Delete linked Schedule Item if it exists (for the OLD date)
+            // Parse original date from reason "[Đã đổi] Nghỉ bù từ DD/MM/YYYY"
+            let originalDate: string | null = null;
+            const dateMatch = existingLeave.reason.match(/từ (\d{2})\/(\d{2})\/(\d{4})/);
+            if (dateMatch) {
+                originalDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+            }
+
             const restItem = schedule.find(s =>
                 s.jobId === 'JOB_NGHI_BU' &&
                 s.employeeIds.includes(existingLeave.employeeId) &&
-                isSameDay(parseISO(s.date), parseISO(existingLeave.date)) &&
-                s.shift === existingLeave.shift
+                (
+                    (originalDate && s.date === originalDate) ||
+                    (isSameDay(parseISO(s.date), parseISO(existingLeave.date)) && s.shift === existingLeave.shift)
+                )
             );
 
             if (restItem) {
-                const updatedSchedule = {
-                    ...restItem,
-                    date: format(parseISO(editingAutoLeave.date), 'yyyy-MM-dd'),
-                    shift: editingAutoLeave.shift
-                };
-                scheduleMutations.update.mutate(updatedSchedule);
+                // Delete old rest item instead of updating — leave request already handles the new date
+                scheduleMutations.remove.mutate(restItem.id);
             }
         }
         setEditingAutoLeave(null);

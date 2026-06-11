@@ -79,6 +79,14 @@ const onLeave = (empId: string, day: Date, shift: string, leaves: LeaveRequest[]
     return leaves.some(l => l.employeeId === empId && isSameDay(new Date(l.date), day) && l.shift === shift && (l.status === 'Approved' || l.status === 'Pending'));
 };
 
+const getOriginalLeaveDate = (reason: string): string | null => {
+    const match = reason.match(/từ (\d{2})\/(\d{2})\/(\d{4})/);
+    if (match) {
+        return `${match[3]}-${match[2]}-${match[1]}`;
+    }
+    return null;
+};
+
 const countWorkingDaysInWeek = (empId: string, schedule: ScheduleItem[], targetDate: Date) => {
     const days = new Set<string>();
     schedule.forEach(s => {
@@ -354,7 +362,15 @@ export function generateWeeklySchedule({
             filledSlotIds.add(slot.id);
 
             const restItem = createRestItem(winner.id, day);
-            if (!isBusy(winner.id, new Date(restItem.date), 'Sáng', newSchedule)) {
+            const hasMovedLeave = leaves.some(l =>
+                l.employeeId === winner.id &&
+                (l.reason.includes('[Đã đổi]') || l.reason.includes('[Tự động]')) &&
+                (
+                    (l.date === restItem.date && l.shift === 'Sáng') ||
+                    (getOriginalLeaveDate(l.reason) === restItem.date)
+                )
+            );
+            if (!isBusy(winner.id, new Date(restItem.date), 'Sáng', newSchedule) && !hasMovedLeave) {
                 newSchedule.push(restItem);
             }
         }

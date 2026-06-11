@@ -220,3 +220,62 @@
     - **Validate từng dòng + lowercase email:** Toàn bộ dữ liệu email của nhân viên import qua Excel được lowercase và trim. Chạy `validateEmployee` cho từng dòng trước khi tiến hành batch ghi. Nếu phát hiện bất kỳ dòng nào lỗi, hủy toàn bộ tiến trình ghi (atomic rollback) và xuất Toast báo lỗi chi tiết theo số dòng Excel.
     - **parseISO & localeCompare:** Thay thế hiển thị ngày bằng `parseISO` địa phương và tối ưu hóa việc sắp xếp ca trực bằng so sánh chuỗi trực tiếp (`localeCompare`), loại bỏ `new Date` anti-pattern.
 - **Lý do:** Tăng cường an toàn bảo mật route-level, bảo vệ chất lượng dữ liệu sạch trên Firestore, tránh xung đột casing RBAC, và hiển thị nhất quán đa múi giờ.
+
+## 27. Fix Reactivity Cache Wiping during Manual Coordination (v4.4.9)
+- **Vấn đề:** Khi gán lịch thủ công hoặc duyệt phép, màn hình biến mất toàn bộ lịch phân công và đơn nghỉ của tất cả mọi người, chỉ khôi phục sau khi bấm Ctrl + F5. Đây là do mutation gọi `invalidateQueries` cho `SCHEDULE_KEYS.all` và `LEAVE_KEYS.all`, kích hoạt `queryFn` rỗng (trả về `[]` vì dữ liệu được stream qua `onSnapshot`). Việc giải quyết `queryFn` về `[]` tạm thời ghi đè cache đang hoạt động.
+- **Quyết định:** Triển khai **Option 1 (Hướng A + B)**:
+    - **Hướng A**: Thay đổi `queryFn` trong 3 hook real-time (`useSchedulesRealtimeQuery`, `useLeavesRealtimeQuery`, `useAllocationsRealtimeQuery`) để trả về dữ liệu cache hiện tại (`queryClient.getQueryData(queryKey) || []`) thay vì `[]`, tạo lưới an toàn toàn cục. Vẫn giữ logic throw `snapshotError` ở đầu để không nuốt lỗi.
+    - **Hướng B**: Loại bỏ hoàn toàn các dòng `invalidateQueries` cho `SCHEDULE` và `LEAVE` tại các handler gán/xóa thủ công trong `Modals.tsx` và `useFixedSchedule.ts` để tránh refetch chu kỳ thừa (Firestore `onSnapshot` đã tự động đồng bộ hóa các thay đổi).
+    - **Giữ lại**: Giữ nguyên `invalidateQueries` cho các key non-real-time như `LEAVE_BALANCE_KEYS` và `LEAVE_BALANCE_HISTORY_KEYS` vì các chỉ tiêu này được tính toán bất đồng bộ qua Cloud Function và cần refetch chủ động.
+- **Lý do:** Khắc phục triệt để lỗi mất dữ liệu tức thời khi điều phối thủ công, tối ưu hóa lưu lượng mạng bằng cách loại bỏ các refetch thừa, và bảo toàn hoạt động chính xác của Cloud Functions cập nhật ví nghỉ phép.
+
+## 28. Daily Allocation Multi-Batch Rollover Support (v4.4.10)
+- **Vấn đề:** Trong phân hệ Phân công hàng ngày (DailyAllocation), khi Coordinator chia việc xong bấm Lưu thay đổi, ô nhập liệu cột "Chia mới" (`newAssigned`) vẫn giữ nguyên giá trị cũ mà không reset về 0, làm kẹt số và không thể nhập đợt mới từ đầu. Thêm vào đó, công thức tính Tồn (`calculatePending`) bỏ qua hoàn toàn số đã chia từ các đợt trước (`assigned`).
+- **Quyết định:**
+    - **Rollover khi lưu:** Khi lưu phân công, tự động cộng dồn `newAssigned` vào `assigned` và đặt `newAssigned = 0`.
+    - **Optimistic Sync & Rollback:** Trong `handleSave`, cập nhật local state và xóa `dirtyIds` đồng bộ ngay lập tức để tắt nút lưu và tránh double-click. Chụp lại snapshot trước khi ghi DB; nếu ghi lỗi thì tự động rollback về state trước đó và mở lại trạng thái sửa.
+    - **UI Indicators:** Wrap cột "Chia mới" trong `index.tsx` và thêm nhãn nhỏ `Đã chia: X` bên dưới ô input và summary cell để Coordinator theo dõi số lượng đã phân công trước đó.
+    - **Sửa công thức Tồn:** Đổi công thức thành `Tồn = (Đã chia + Chia mới) - (HT + Trả KD + Trả TP)` giúp phản ánh đúng số liệu thực tế do `completed` và `returned` là dữ liệu tích lũy chạy liên tục trong ngày.
+    - **DB Batch Write & Invalidation Cleanup:** Sử dụng `allocationsService.saveAll` thay cho vòng lặp lưu lẻ tẻ, đồng thời xóa lệnh `invalidateQueries` thừa vì dữ liệu real-time qua `onSnapshot`.
+- **Lý do:** Khắc phục lỗi kẹt ô nhập liệu khi chia nhiều đợt trong ngày, tăng tính nguyên tử dữ liệu, tối ưu hóa tốc độ ghi và đồng bộ hóa cache chính xác.
+
+## 29. Public Share Routing Fix (v4.4.11)
+- **Vấn đề:** Trang share link cho khách hàng truy cập `/shared/training` bị báo lỗi "Không thể tải dữ liệu lịch. Vui lòng thử lại sau" và console log xuất hiện `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. Nguyên nhân là Firebase Hosting rewrite rule cho `/api/public-schedule` sử dụng sai khóa `"id"` thay vì `"functionId"` bên trong object `"function"`. Hosting không khớp được quy tắc này nên fall back về rewrite rule mặc định `"**" -> "/index.html"`, trả về mã HTML thay vì gọi Cloud Function.
+- **Quyết định:** Sửa `"id"` thành `"functionId"` trong file `firebase.json` cho cấu hình rewrite của function `getPublicTrainingSchedule` tại region `asia-southeast1`.
+- **Lý do:** Đảm bảo Firebase Hosting định tuyến chính xác request `/api/public-schedule` tới Cloud Function vùng `asia-southeast1`, trả về JSON data hợp lệ thay vì trang HTML.
+
+## 30. API Cache Busting with Version Parameter (v4.4.12)
+- **Vấn đề:** Mặc dù Hosting rewrite rule đã được sửa ở v4.4.11 và API live đã hoạt động đúng, nhưng trình duyệt của một số người dùng vẫn tải bản ghi cache lỗi trước đó của URL `/api/public-schedule` (trả về trang HTML fallback `/index.html`), dẫn đến lỗi `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
+- **Quyết định:** Bổ sung tham số phiên bản tĩnh vào URL gọi API tại frontend thành `/api/public-schedule?v=4.4.12`.
+- **Lý do:** Tham số tĩnh `?v=4.4.12` đóng vai trò là cache-buster đối với các yêu cầu đã cache cũ ở phía trình duyệt và CDN edge, giải quyết triệt để lỗi cache bẩn mà không làm mất đi khả năng tối ưu hóa CDN caching cho toàn bộ người dùng đang sử dụng phiên bản mới này.
+
+## 31. Split Public Daily Time Column (v4.4.13)
+- **Vấn đề:** Trong giao diện Lịch Đào Tạo Hàng Ngày của Khách hàng, tỷ lệ hiển thị giữa các cột (Tên lớp, Buổi, Thời gian, Link) chưa thực sự cân đối. Cột Thời gian hiển thị gộp `HH:MM - HH:MM` chiếm diện tích nhưng tỷ lệ bố cục chưa đẹp.
+- **Quyết định:** Tách cột "Thời gian" thành hai cột riêng biệt "Bắt đầu" và "Kết thúc" trong `PublicDailySchedule.tsx`. Nâng cấp phiên bản cache buster tương ứng lên `?v=4.4.13`.
+- **Lý do:** Tối ưu hóa UI/UX, giúp bảng lịch trực quan, cân đối và dễ đọc hơn đối với Khách hàng xem lịch đào tạo hàng ngày. Bump cache buster để trình duyệt áp dụng layout mới ngay lập tức.
+
+## 32. Optimize Column Width Proportions (v4.4.14)
+- **Vấn đề:** Sau khi tách cột thời gian ở v4.4.13, tỷ lệ hiển thị giữa các cột (Tên lớp, Buổi, Bắt đầu, Kết thúc, Link) vẫn chưa thực sự cân đối. Cột Tên lớp cần chiếm 50% diện tích chiều rộng bảng để thông tin tên lớp hiển thị đầy đủ và đẹp mắt hơn.
+- **Quyết định:** Thiết lập thuộc tính chiều rộng cột chi tiết trong `PublicDailySchedule.tsx` theo tỷ lệ: Tên lớp (50%), Buổi (10%), Bắt đầu (12%), Kết thúc (12%), và Link (16%). Nâng cấp tham số cache buster tương ứng lên `?v=4.4.14`.
+- **Lý do:** Đảm bảo bố cục hiển thị cột cân đối, chuyên nghiệp và tối ưu hóa tối đa diện tích bảng cho thông tin Tên lớp. Bump cache buster để trình duyệt cập nhật layout mới tức thì.
+
+## 33. Fix Firestore Update Permission for Staff (v4.4.15)
+- **Vấn đề:** Khi nhân viên bấm "Hoàn thành công việc" hoặc lưu tiến độ, hệ thống báo lỗi `FirebaseError: Missing or insufficient permissions`. Nguyên nhân là do client-side schema (Zod) tự động chèn các giá trị mặc định cho các trường tùy chọn/read-only (như `id`, `isFixed`, `requiredCount`, `coefficient`). Khi gửi cập nhật, Firestore rules coi các trường này là các trường bị thay đổi/thêm mới (affected keys) và chặn cập nhật vì chúng không nằm trong danh sách các trường được phép thay đổi.
+- **Quyết định:** Cập nhật `firestore.rules` để cho phép `id`, `isFixed`, `requiredCount`, và `coefficient` có trong danh sách `affectedKeys()` đối với cập nhật Schedule và Allocation từ phía nhân viên. Tuy nhiên, bổ sung các điều kiện kiểm tra nghiêm ngặt: nếu các trường này đã tồn tại trong database, giá trị cập nhật gửi lên bắt buộc phải trùng khớp với giá trị cũ (`request.resource.data.coefficient == resource.data.coefficient`, v.v.), đảm bảo nhân viên không thể thay đổi giá trị của chúng.
+- **Lý do:** Sửa dứt điểm lỗi chặn quyền viết khi nhân viên hoàn thành công việc hoặc lưu tiến độ mà không hạ thấp tính bảo mật của hệ thống.
+
+## 34. Shared Allocation Merge Utility, Staff Save Hardening & Firestore Allocation Guards (v4.4.16)
+- **Vấn đề:** 
+    1. Logic gộp allocations (lịch phân công) giữa dữ liệu real-time Firestore và local state bị lặp lại hoàn toàn (~60 dòng code) ở cả `useDailyAllocation.ts` (Coordinator) và `useMyTasks.ts` (Staff). Việc lặp này dễ gây lệch logic và bất nhất khi bảo trì.
+    2. Hàm lưu tiến độ của Staff (`handleSaveProgress` trong `useMyTasks.ts`) chạy lưu đơn lẻ từng document song song bằng `Promise.all` không có tính giao dịch, đồng thời không có rollback state khi gặp lỗi ghi DB.
+    3. Việc sắp xếp trực tiếp trên mảng reactive `myDailyAllocations.sort(...)` trong `DailyTasksList.tsx` gây đột biến dữ liệu reactive (mutation side-effect), vi phạm nguyên tắc của React/TanStack Query.
+    4. Firestore Rules ở phiên bản v4.4.15 cho phép Staff gửi lên payload có kèm một số trường nhưng chưa bảo vệ nghiêm ngặt các cột phân công của allocation như `assigned` và `newAssigned`. Staff có thể lợi dụng điều này để tự thay đổi lượng việc được giao.
+- **Quyết định:**
+    - **Trích xuất shared helper:** Tạo utility [allocationMerge.ts](file:///d:/ONB%20App/Calender/utils/allocationMerge.ts) chứa `deduplicateAllocations` và `mergeAllocationsWithLocal`, thay thế hoàn toàn code inline ở cả hai hook trên.
+    - **Staff Batch Save & Snapshot Rollback:** Chuyển hàm lưu tiến độ của Staff sang dùng `writeBatch` thông qua `allocationsService.saveAll`, chụp snapshot local state trước khi mutate và tự động khôi phục (rollback) nếu thất bại.
+    - **Sắp xếp an toàn:** Sử dụng cú pháp spread `[...myDailyAllocations].sort(...)` để clone mảng trước khi sắp xếp, loại bỏ đột biến dữ liệu.
+    - **Siết Rules Allocation:** Bổ sung điều kiện kiểm tra equality `request.resource.data.assigned == resource.data.assigned` và tương tự với `newAssigned` đối với quyền cập nhật của Staff trong `firestore.rules`.
+- **Lý do:** Tăng tính tái sử dụng code (DRY), đảm bảo tính nguyên tử (atomicity) khi nhân viên lưu tiến độ, tránh lỗi runtime do mutation side-effect, và bịt kín lỗ hổng bảo mật cho phép Staff tự ý sửa đổi số lượng phân công công việc.
+
+
+

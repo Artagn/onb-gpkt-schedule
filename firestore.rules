@@ -86,7 +86,14 @@ service cloud.firestore {
                       request.resource.data.date == resource.data.date &&
                       request.resource.data.shift == resource.data.shift &&
                       request.resource.data.jobId == resource.data.jobId &&
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'customerParticipants', 'customerSurveys', 'customerCapable', 'note'])
+                      (!('id' in resource.data) || request.resource.data.id == resource.data.id) &&
+                      (!('isFixed' in resource.data) || request.resource.data.isFixed == resource.data.isFixed) &&
+                      (!('requiredCount' in resource.data) || request.resource.data.requiredCount == resource.data.requiredCount) &&
+                      (!('coefficient' in resource.data) || request.resource.data.coefficient == resource.data.coefficient) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'status', 'customerParticipants', 'customerSurveys', 'customerCapable', 'note',
+                        'id', 'isFixed', 'requiredCount', 'coefficient'
+                      ])
                     ));
     }
     
@@ -117,12 +124,19 @@ service cloud.firestore {
       // Admin/Coordinator have full write access
       allow write: if isCoordinatorOrAdmin();
       // Staff can update progress for their own allocations
+      // Security: assigned/newAssigned are enforced read-only for staff via equality checks
       allow update: if isAuthenticated() &&
                     resource.data.employeeId == getUserEmployeeId() &&
                     request.resource.data.employeeId == getUserEmployeeId() &&
                     request.resource.data.date == resource.data.date &&
                     request.resource.data.jobId == resource.data.jobId &&
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assigned', 'newAssigned', 'completed', 'returnedKD', 'returnedTP']);
+                    (!('id' in resource.data) || request.resource.data.id == resource.data.id) &&
+                    (!('assigned' in resource.data) || request.resource.data.assigned == resource.data.assigned) &&
+                    (!('newAssigned' in resource.data) || request.resource.data.newAssigned == resource.data.newAssigned) &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'completed', 'returnedKD', 'returnedTP', 'id',
+                      'assigned', 'newAssigned'
+                    ]);
     }
     
     // ========== WORK PERIODS COLLECTION ==========
