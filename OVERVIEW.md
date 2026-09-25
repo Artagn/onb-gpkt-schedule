@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-06-11  
-> **Version:** v4.4.17  
+> **Last Updated:** 2026-09-21  
+> **Version:** v4.5.0  
 > **Status:** ✅ Production
 
 ---
@@ -16,6 +16,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 - ✅ **Leave Balance Wallet** - Tính điểm nghỉ bù T7/CN/Lễ qua Cloud Functions
 - ✅ **Monthly Evaluation** - Đánh giá KPI theo nhóm DT/KS với workflow duyệt
 - ✅ **Public Share** - Chia sẻ lịch đào tạo công khai qua link cố định, tự động lọc ngày lễ, tối ưu CDN Cache thực tế chi phí $0
+- ✅ **Survey Short Links** - Link khảo sát rút gọn (TinyURL) tích hợp vào lịch đào tạo, điền sẵn Tên lớp + Ngày, cache Firestore 1 lần/ngày/lớp
 - ✅ **PWA Mobile** - Installable app với offline support
 
 ---
@@ -85,6 +86,10 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-09-21 | v4.5.1 | Job Mặc định & Lọc Phân công theo Lịch cố định | Gộp job "1-1" + "Chuyển đổi" thành "Chuyển đổi & 1-1" (job_27), khóa Sửa/Xóa job này trong JobManager (`DEFAULT_JOB_IDS`). Daily Allocation lọc nhân viên cho job này theo Lịch cố định (`schedule`) thay vì cả nhóm "Chia hàng ngày". Sửa lỗi xung đột với bộ lọc "đang rảnh theo buổi" khiến danh sách rỗng. |
+| 2026-08-31 | v4.5.0 hotfix | Bảo mật hoá Token TinyURL & Deploy chính thức | Chuyển token TinyURL từ hardcode sang Firebase Secret Manager (`defineSecret`), gỡ bỏ `getSurveyForm`/`submitSurveyResponse`/`sheetsService.ts`/`googleapis` (tính năng khảo sát tự viết chưa dùng tới, ngoài phạm vi Survey Short Links). Deploy chính thức `batchSurveyShortLinks` + Firestore rules lên production. |
+| 2026-07-15 | v4.5.0 | Survey Short Links | Tích hợp link khảo sát rút gọn (TinyURL API) vào lịch đào tạo. Cloud Function `batchSurveyShortLinks` tạo/cache link trong Firestore collection `surveyShortLinks`. Frontend hook `useSurveyLinks` batch-fetch với TanStack Query cache 24h. Nút "📋 Khảo sát" trên mỗi SubJob, click = copy link rút gọn. |
+| 2026-06-17 | v4.4.18 | Sửa lỗi CORS Đổi lịch (Region Mismatch) | Khởi tạo functions instance trỏ chính xác về vùng `asia-southeast1` (Singapore) trùng khớp với GCF, giải quyết triệt để lỗi CORS khi duyệt đổi ca. |
 | 2026-06-11 | v4.4.17 | Phân công Hàng ngày & Sửa đổi Nghỉ bù | Cho phép chỉnh sửa trực tiếp số phân công lũy kế trong ô nhập liệu Daily Allocation, loại bỏ text "Đã chia: X" rác. Sửa dứt điểm lỗi tự phục hồi/trùng lặp vé nghỉ bù khi đổi lịch (Nguyễn Thị Ngân) qua useMyTasks & schedulerEngine guards. |
 | 2026-06-08 | v4.4.16 | Shared Allocation Merge & Staff Save Hardening | Trích xuất utility dùng chung `utils/allocationMerge.ts`. Bảo mật hóa Firestore Rules cấm Staff sửa assigned/newAssigned. Chuyển Staff Save sang batch write kèm rollback snapshot khi lưu tiến độ. |
 | 2026-06-08 | v4.4.15 | Fix Firestore Update Permission | Sửa lỗi `Missing or insufficient permissions` khi nhân viên cập nhật trạng thái công việc (status = Completed) hoặc lưu tiến độ. Cho phép các trường id, isFixed, requiredCount, coefficient đi kèm trong payload cập nhật nhưng cấm thay đổi giá trị. |
@@ -142,6 +147,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | **Types** | `types.ts` | 28 TypeScript interfaces (364 lines) |
 | **Schemas** | `schemas.ts` | Zod validation schemas |
 | **Common** | `components/common/` | ColorLegend, ConfirmModal, GlobalErrorBoundary, EmptyState |
+| **Survey Links** | `hooks/useSurveyLinks.ts` | Batch-fetch link khảo sát rút gọn (TanStack Query 24h cache) |
 | **Utils** | `utils/` | evaluationHelpers.ts, evaluationValidation.ts, permissions.ts, allocationMerge.ts |
 
 ---
@@ -156,6 +162,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 | **Monthly Evaluation** | ✅ Stable | DT/KS forms, Review Manager |
 | **Reports & KPI** | ✅ Stable | Charts, Excel export, Livechat/Training summaries |
 | **Public Share** | ✅ Deployed | v3.20.0 | Caching API, Lịch tuần/ngày |
+| **Survey Short Links** | ✅ Deployed | v4.5.0 | TinyURL + Firestore cache, copy to clipboard |
 | **PWA Mobile** | ✅ Deployed | v3.18.0 |
 
 ---

@@ -70,8 +70,17 @@ const MetricManager: React.FC<MetricManagerProps> = ({ metrics, loading }) => {
             return;
         }
 
+        const safeId = existingMetric?.id ||
+            formCode.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') ||
+            `metric_${Date.now()}`;
+
+        if (!existingMetric && metrics.some(m => m.id === safeId)) {
+            toast.error(`Mã chỉ tiêu "${safeId}" đã tồn tại. Vui lòng chọn mã khác.`);
+            return;
+        }
+
         const metric: CareMetric = {
-            id: existingMetric?.id || formCode.trim().toLowerCase().replace(/\s+/g, '_'),
+            id: safeId,
             name: formName.trim(),
             code: formCode.trim().toLowerCase(),
             unit: formUnit.trim() || undefined,
@@ -85,8 +94,9 @@ const MetricManager: React.FC<MetricManagerProps> = ({ metrics, loading }) => {
             await saveMutation.mutateAsync(metric);
             toast.success(existingMetric ? 'Đã cập nhật chỉ tiêu!' : 'Đã thêm chỉ tiêu mới!');
             cancelEdit();
-        } catch (error) {
-            toast.error('Lỗi khi lưu chỉ tiêu.');
+        } catch (error: any) {
+            console.error('Error saving metric:', error);
+            toast.error(`Lỗi khi lưu chỉ tiêu: ${error?.message || 'Không xác định'}`);
         }
     };
 

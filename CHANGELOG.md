@@ -3,8 +3,15 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.4.18] - 2026-06-17 🛡️ Sửa lỗi CORS Đổi lịch (Region Mismatch)
+**Summary:** Sửa lỗi CORS (ERR_FAILED / preflight check block) khi nhân viên phê duyệt yêu cầu đổi ca trực do lệch vùng gọi Firebase Functions (us-central1 vs asia-southeast1).
+
+### Fixed
+- **`firebaseConfig.ts`:** Khởi tạo instance `functions` dùng chung ở client-side trỏ chính xác về vùng `asia-southeast1` (Singapore) trùng khớp với cấu hình deployed của function `approveSwapRequest`. Nhờ đó giải quyết dứt điểm lỗi CORS chặn duyệt đổi ca.
+
 ## [4.4.17] - 2026-06-11 🚀 Phân công Hàng ngày & Sửa đổi Nghỉ bù
 **Summary:** Chuyển đổi tính năng Phân công Hàng ngày sang mô hình cập nhật trực tiếp số lượng phân công lũy kế và dứt điểm lỗi hiển thị nghỉ bù trùng lặp của Nguyễn Thị Ngân.
+
 
 ### Added
 - **Tích hợp Số lũy kế Phân công:** Ô nhập liệu cột "Phân công" (trước đây là "Chia mới") trong DailyAllocation hiển thị trực tiếp và cho phép điều chỉnh (tăng/giảm) số lượng lũy kế phân công của ngày hôm nay.

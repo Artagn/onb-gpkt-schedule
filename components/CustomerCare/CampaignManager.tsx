@@ -71,22 +71,33 @@ const CampaignManager: React.FC<CampaignManagerProps> = ({ campaigns, loading })
             return;
         }
 
+        const safeId = existingCampaign?.id ||
+            formCode.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') ||
+            `CAMP_${Date.now()}`;
+
+        if (!existingCampaign && campaigns.some(c => c.id === safeId)) {
+            toast.error(`Mã chiến dịch "${safeId}" đã tồn tại. Vui lòng chọn mã khác.`);
+            return;
+        }
+
         const campaign: CareCampaign = {
-            id: existingCampaign?.id || formCode.trim().toUpperCase().replace(/\s+/g, '_'),
+            id: safeId,
             name: formName.trim(),
             code: formCode.trim(),
             description: formDesc.trim() || undefined,
             isActive: existingCampaign?.isActive ?? true,
             order: existingCampaign?.order ?? (sortedCampaigns.length + 1),
             createdAt: existingCampaign?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
         };
 
         try {
             await saveMutation.mutateAsync(campaign);
             toast.success(existingCampaign ? 'Đã cập nhật chiến dịch!' : 'Đã thêm chiến dịch mới!');
             cancelEdit();
-        } catch (error) {
-            toast.error('Lỗi khi lưu chiến dịch.');
+        } catch (error: any) {
+            console.error('Error saving campaign:', error);
+            toast.error(`Lỗi khi lưu chiến dịch: ${error?.message || 'Không xác định'}`);
         }
     };
 
@@ -156,7 +167,7 @@ const CampaignManager: React.FC<CampaignManagerProps> = ({ campaigns, loading })
                         </button>
                     )}
                     <button
-                        onClick={() => { setShowAddForm(true); cancelEdit(); }}
+                        onClick={() => { cancelEdit(); setShowAddForm(true); }}
                         className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
                     >
                         <Plus className="w-3.5 h-3.5" />

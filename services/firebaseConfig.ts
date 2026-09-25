@@ -24,4 +24,5 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 
-export const functions = getFunctions(app);
+export const functions = getFunctions(app, 'asia-southeast1');
+

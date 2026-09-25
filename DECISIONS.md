@@ -286,6 +286,44 @@
     - Tính toán gộp `assigned + newAssigned` trong logic báo cáo để giữ tính tương thích ngược cho dữ liệu lịch sử.
 - **Lý do:** Giúp người điều phối dễ dàng sửa sai (tăng/giảm số lượng phân công tùy ý), đồng thời tinh gọn giao diện làm việc tối đa theo đúng yêu cầu trải nghiệm người dùng.
 
+## 36. Sửa lỗi CORS duyệt Đổi ca trực (v4.4.18)
+- **Vấn đề:** Khi nhân sự bấm duyệt đổi lịch, hệ thống báo lỗi CORS (`Preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present`) và cuộc gọi tới Cloud Function `approveSwapRequest` bị thất bại. Lỗi này do frontend gọi nhầm API endpoint mặc định tại vùng `us-central1` (`https://us-central1-onb-gpkt-schedule.cloudfunctions.net`), trong khi function này thực tế được deploy ở Singapore (`asia-southeast1`).
+- **Quyết định:** Khởi tạo instance `functions` dùng chung ở client-side trong [firebaseConfig.ts](file:///d:/ONB%20App/Calender/services/firebaseConfig.ts) với tham số chỉ định cụ thể vùng `asia-southeast1`: `getFunctions(app, 'asia-southeast1')`.
+- **Lý do:** Đảm bảo các cuộc gọi HTTPS Callable Cloud Function trỏ chính xác về vùng Singapore, giải quyết triệt để lỗi CORS do lệch vùng, cải thiện tốc độ phản hồi đáng kể nhờ máy chủ gần khu vực người dùng hơn.
 
+## 37. Tích hợp Link Khảo sát Đào tạo rút gọn (v4.5.0)
+- **Vấn đề:** Nhân viên đào tạo cần gửi link khảo sát điền sẵn Tên lớp + Ngày thông qua chat cho khách hàng. Link nguyên bản của Google Form quá dài, gửi qua chat mất thẩm mỹ và không tiện lợi. Cần tích hợp TinyURL API để tự động rút gọn link nhưng phải tối ưu số lượng gọi API (TinyURL có giới hạn) và tốc độ tải trang cho nhân viên.
+- **Quyết định:**
+    - Triển khai Cloud Function `batchSurveyShortLinks` để xử lý rút gọn server-side.
+    - Thiết lập hệ thống cache 3 tầng: 
+      1. Client cache bằng TanStack Query (24 giờ stale time) để hạn chế tối đa gọi network.
+      2. Server cache bằng Firestore collection `surveyShortLinks` với định dạng ID `{date}_{normalizedClassName}` để dùng chung cho mọi nhân viên cùng phụ trách lớp đó trong ngày.
+      3. Gọi TinyURL API chỉ khi cả 2 tầng cache trên đều bỏ lỡ (cache miss), giới hạn batch tối đa 50 lớp/lần.
+    - Thay đổi UX nút "Khảo sát" trên UI: Click vào nút sẽ copy link khảo sát rút gọn trực tiếp vào clipboard kèm thông báo toast, thay vì mở tab mới để nhân viên tiện gửi chat luôn.
+- **Lý do:** Đảm bảo link khảo sát ngắn gọn, chuyên nghiệp khi gửi cho khách hàng, tối ưu hóa chi phí API thông qua cơ chế cache thông minh dùng chung, và nâng cao trải nghiệm người dùng bằng cách giản lược thao tác copy link.
 
+## 38. Bảo mật hoá Token TinyURL & Thu gọn phạm vi Survey Module (v4.5.0 hotfix)
+- **Vấn đề:**
+    1. Trong lúc phát triển `batchSurveyShortLinks` (ADR #37), token TinyURL bị hardcode dạng plaintext trực tiếp trong `functions/src/survey.ts` thay vì lưu trong cấu hình bảo mật như tài liệu ban đầu mô tả — rủi ro rò rỉ vĩnh viễn nếu file này được commit vào Git history.
+    2. Cùng file còn chứa 2 Cloud Function `getSurveyForm` và `submitSurveyResponse` cùng file phụ trợ `sheetsService.ts` (dùng package `googleapis`) — một tính năng khảo sát tự viết (đọc/ghi collection `surveys`, `surveyResponses`, ghi Google Sheets) hoàn toàn tách biệt khỏi tính năng Link Khảo sát Rút gọn đã mô tả, chưa có frontend nào gọi tới, chưa có Firestore Rules tương ứng, và chưa từng được deploy.
+- **Quyết định:**
+    - Chuyển token TinyURL sang Firebase Secret Manager qua `defineSecret('TINYURL_API_TOKEN')`, bind bằng `.runWith({ secrets: [...] })`. Đổi giá trị chỉ qua `firebase functions:secrets:set TINYURL_API_TOKEN`, không còn nằm trong source code hay Firestore.
+    - Xóa hoàn toàn `getSurveyForm`, `submitSurveyResponse`, `sheetsService.ts` và dependency `googleapis` khỏi `functions/` vì chưa dùng tới và mở rộng bề mặt tấn công không cần thiết. `functions/src/index.ts` chỉ còn export `batchSurveyShortLinks` từ module `survey`.
+- **Lý do:** Một secret từng nằm plaintext trên đĩa nên được coi là đã lộ và cần xoay vòng qua kênh bảo mật chính thức thay vì tiếp tục tin tưởng file nguồn. Code chưa dùng tới, không khớp tài liệu đặc tả, và không có Rules bảo vệ là rủi ro bảo mật/bảo trì nên loại bỏ ngay khi phát hiện thay vì để tồn tại "phòng khi cần".
+
+## 39. Bài học vận hành: Không sửa `functions/package.json` bằng Node khác `engines.node` (2026-08-31)
+- **Vấn đề:** Khi thử dọn 4 dependency không dùng tới (`@google/generative-ai`, `markdown-it`, `@types/markdown-it`, `cors` — tàn dư từ AI Chatbot đã gỡ, xem ADR #8), `npm install`/`npm uninstall`/`npm ci` chạy ở máy dev (Node v24, ngoài quy định `engines.node: "22"` của `functions/package.json`) tính toán lại nhánh phụ thuộc optional sâu (`firebase-admin` → `@google-cloud/firestore` [optional] → `google-gax` → `protobufjs-cli` [optional] → `jsdoc` → `markdown-it`) khác với npm mà Cloud Build (Node 22) sử dụng khi deploy. Kết quả: `npm ci` pass ở local nhưng fail ngay trên Cloud Build với lỗi "Missing package from lock file", khiến 2 lần deploy `batchSurveyShortLinks` thất bại liên tiếp trước khi phải revert lại dependency cũ để deploy thành công.
+- **Quyết định:** Giữ nguyên 4 dependency "chết" đó (vô hại, chỉ nằm sâu trong optional chain, không ảnh hưởng runtime hay bảo mật, chênh lệch kích thước gói deploy không đáng kể ~0.4KB). Không chạy `npm install`/`npm uninstall` trong thư mục `functions/` bằng Node khác phiên bản `22` cho tới khi máy dev có Node 22 (qua nvm) để tái tạo đúng môi trường Cloud Build.
+- **Lý do:** Rủi ro làm deploy production thất bại lớn hơn nhiều so với lợi ích dọn dẹp vài KB code không dùng tới. Bài học chung: mọi thay đổi `package-lock.json` trong `functions/` cần chạy đúng Node version ghi trong `engines` trước khi tin tưởng kết quả `npm ci` cục bộ phản ánh đúng hành vi deploy thật.
+
+## 40. Job Mặc định (Protected Job) & Lọc nhân viên Phân công hàng ngày theo Lịch cố định (v4.5.x)
+- **Vấn đề:** Sau khi gộp 2 job "Chia hàng ngày" trùng lặp mục đích ("1-1" và "Chuyển đổi") thành một job duy nhất "Chuyển đổi & 1-1", cần:
+    1. Ngăn Coordinator vô tình Sửa/Xóa job này qua JobManager (vì đây giờ là job "lõi" duy nhất còn lại của nhóm, xóa/đổi tên nhầm sẽ ảnh hưởng toàn bộ luồng Phân công hàng ngày).
+    2. Trước đây, bảng Phân công hàng ngày hiển thị TẤT CẢ nhân viên thuộc nhóm "Chia hàng ngày" (theo `employee.jobGroups`) làm hàng, bất kể họ có thực sự được phân công job đó trong ngày hay không — với job "Chuyển đổi & 1-1", danh sách này cần thu hẹp lại chỉ còn đúng những người đã được Coordinator gán qua Lịch cố định (`schedule`) cho job này trong ngày cụ thể, vì đây là công việc cần chỉ định thủ công theo khách hàng (MST/hồ sơ chuyển đổi cụ thể), không phải việc "ai rảnh thì làm".
+- **Quyết định:**
+    - Thêm mảng hằng `DEFAULT_JOB_IDS` trong `constants.ts` (hiện chỉ chứa `job_27`).
+    - **JobManager:** ẩn nút Sửa/Xóa và thay bằng icon khóa cho job nằm trong `DEFAULT_JOB_IDS`; chặn tương ứng ở tầng logic (`useJobManager.ts`) để không thể bypass qua thao tác khác.
+    - **Daily Allocation:** với job thuộc `DEFAULT_JOB_IDS`, nhân viên chỉ "phù hợp" (hiện hàng + được nhập liệu) nếu có bản ghi `schedule` khớp `jobId` + đúng ngày + chưa hủy + có tên trong `employeeIds` (`isScheduledForJob`). Nhân viên đủ điều kiện cho job khác (vd. do đang rảnh) nhưng chưa được gán job mặc định vẫn hiện hàng (nếu đang xem nhiều job cùng lúc) nhưng ô nhập của job mặc định sẽ hiện "Chưa phân công" thay vì input.
+    - **Bug phát sinh & đã sửa cùng đợt:** logic gốc lọc hàng theo "đang rảnh trong buổi" (`checkBusy`, dùng `busyMap` không phân biệt job) áp dụng vô điều kiện lên MỌI job. Vì được gán lịch cố định cho job mặc định cũng khiến nhân viên bị đánh dấu "bận" trong `busyMap`, 2 điều kiện AND với nhau triệt tiêu toàn bộ danh sách (0 nhân viên hiện lên). Sửa bằng cách tách tiêu chí "phù hợp" theo loại job (`isSuitableForJob`): job mặc định chỉ xét theo lịch cố định (bỏ qua busy-check), job thường vẫn xét rảnh/bận như cũ, rồi OR kết quả theo từng job đang hiển thị thay vì AND chung một điều kiện busy cho cả bảng.
+- **Lý do:** Cho phép 2 mô hình job cùng tồn tại trong 1 bảng Phân công hàng ngày mà không cần tách giao diện riêng: job "mở" (ai thuộc nhóm và đang rảnh đều có thể nhận việc) và job "đóng" (danh sách do Coordinator chỉ định thủ công qua Lịch cố định). `DEFAULT_JOB_IDS` là điểm mở rộng chung — thêm job mặc định khác trong tương lai chỉ cần thêm 1 dòng vào mảng này.
 

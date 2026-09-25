@@ -8,6 +8,7 @@ import { LeaveRequest, ScheduleItem, Job } from '../types';
 import { isSameDay, addDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useLeaveMutations } from './useLeavesQuery';
+import { useScheduleMutations } from './useSchedulesQuery';
 
 interface UseLeaveHandlersProps {
     leaves: LeaveRequest[];
@@ -23,6 +24,7 @@ export const useLeaveHandlers = ({
     currentEmployeeId
 }: UseLeaveHandlersProps) => {
     const leaveMutations = useLeaveMutations();
+    const scheduleMutations = useScheduleMutations();
 
     const handleAddLeave = useCallback(async (newLeave: Partial<LeaveRequest>) => {
         if (currentEmployeeId === 'all') {
@@ -121,7 +123,33 @@ export const useLeaveHandlers = ({
         if (!targetLeave) return;
         const updated = { ...targetLeave, status: 'Approved' as const };
         leaveMutations.update.mutate(updated);
-    }, [leaves, schedule, leaveMutations]);
+
+        // Check if it's a rescheduled compensatory leave
+        if (targetLeave.reason.includes('[Đã đổi]')) {
+            let originalDate: string | null = null;
+            const dateMatch = targetLeave.reason.match(/từ (\d{2})\/(\d{2})\/(\d{4})/);
+            if (dateMatch) {
+                originalDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+            }
+
+            if (originalDate) {
+                const restItem = schedule.find(s =>
+                    s.jobId === 'JOB_NGHI_BU' &&
+                    s.employeeIds.includes(targetLeave.employeeId) &&
+                    s.date === originalDate
+                );
+
+                if (restItem) {
+                    const updatedEmployees = restItem.employeeIds.filter(empId => empId !== targetLeave.employeeId);
+                    if (updatedEmployees.length === 0) {
+                        scheduleMutations.remove.mutate(restItem.id);
+                    } else {
+                        scheduleMutations.update.mutate({ ...restItem, employeeIds: updatedEmployees });
+                    }
+                }
+            }
+        }
+    }, [leaves, schedule, leaveMutations, scheduleMutations]);
 
     const handleRejectLeave = useCallback((id: string, targetEmployeeId?: string, targetDate?: string, targetShift?: string) => {
         if (!window.confirm("Từ chối đơn này?")) return;

@@ -18,7 +18,7 @@ export default defineConfig(() => {
         manifest: {
           name: 'ONB GPKT Schedule',
           short_name: 'ONB Schedule',
-          description: 'MISA ONB GPKT Schedule Manager v4.4.17',
+          description: 'MISA ONB GPKT Schedule Manager v4.4.18',
           theme_color: '#0f172a',
           icons: [
             {

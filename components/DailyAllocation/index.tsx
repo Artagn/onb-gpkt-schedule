@@ -36,6 +36,7 @@ const DailyAllocationView: React.FC<Props> = ({
         allDailyJobs,
         displayedJobs,
         availableEmployees,
+        isEligibleForJob,
         canEdit,
         isDirty,
         handleAllocationChange,
@@ -270,6 +271,15 @@ const DailyAllocationView: React.FC<Props> = ({
                                             </div>
                                         </td>
                                         {displayedJobs.map(job => {
+                                            const eligible = isEligibleForJob(emp.id, job.id);
+                                            if (!eligible) {
+                                                return (
+                                                    <td key={job.id} className="p-1 border text-center text-[11px] text-gray-300 italic bg-gray-50/50" title="Nhân viên chưa được phân công lịch cố định cho công việc này hôm nay">
+                                                        Chưa phân công
+                                                    </td>
+                                                );
+                                            }
+
                                             const data = getAllocationData(emp.id, job.id);
                                             const pending = calculatePending(data);
                                             const isDisabled = !isSingleDay || !canEdit;

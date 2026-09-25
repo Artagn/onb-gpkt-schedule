@@ -4,13 +4,14 @@
  */
 
 import React from 'react';
-import { Edit2, Trash2, Plus, Filter, FileSpreadsheet, Search } from 'lucide-react';
+import { Edit2, Trash2, Plus, Filter, FileSpreadsheet, Search, Lock } from 'lucide-react';
 
 // Modular imports
 import { useJobManager } from './useJobManager';
 import { MultiSelect } from './MultiSelect';
 import { DeleteModal, JobEditModal, SubJobEditModal, ImportModal, JobGroupEditModal } from './Modals';
 import EmptyState from '../common/EmptyState';
+import { DEFAULT_JOB_IDS } from '../../constants';
 
 const JobManager: React.FC = () => {
     const {
@@ -258,8 +259,16 @@ const JobManager: React.FC = () => {
                                                     {j.isActive ? <span className="text-green-600 font-medium">Sử dụng</span> : <span className="text-red-600">Ngưng</span>}
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-xs font-medium">
-                                                    <button onClick={() => handleEditJob(j)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
-                                                    <button type="button" onClick={() => handleDeleteJobClick(j)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    {DEFAULT_JOB_IDS.includes(j.id) ? (
+                                                        <span className="inline-flex items-center gap-1 text-gray-400" title="Công việc mặc định của hệ thống, không thể sửa/xóa">
+                                                            <Lock className="w-3.5 h-3.5" />
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <button onClick={() => handleEditJob(j)} className="text-indigo-600 hover:text-indigo-900 mr-3" title="Sửa"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                            <button type="button" onClick={() => handleDeleteJobClick(j)} className="text-red-600 hover:text-red-900" title="Xóa"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                        </>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))

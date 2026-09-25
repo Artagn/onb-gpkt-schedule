@@ -1,13 +1,15 @@
 
-import React, { useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Wand2, Settings, Loader2, Unlock, Trash2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, Wand2, Settings, Loader2, Unlock, Trash2, Download } from 'lucide-react';
 import { format, addDays } from 'date-fns';
+import toast from 'react-hot-toast';
 import { Employee, Job, ScheduleItem, SchedulePattern, WorkPeriod, Holiday, LeaveRequest, Role } from '../../types';
 import { useFixedSchedule } from './useFixedSchedule';
 import ScheduleMatrix from './ScheduleMatrix';
 import ConfigPatternManager from './ConfigPatternManager';
-import { AssignModal, SecurityModal } from './Modals';
+import { AssignModal, SecurityModal, ExportFreeScheduleModal } from './Modals';
 import PreviewModal from './PreviewModal';
+import { exportFreeEmployeesByDate } from '../../services/excelExportService';
 
 interface Props {
     employees: Employee[];
@@ -68,6 +70,18 @@ const FixedSchedule: React.FC<Props> = ({
     );
 
     const shifts = ['Sáng', 'Chiều', 'Tối'];
+
+    const [showExportFreeModal, setShowExportFreeModal] = useState(false);
+
+    const handleExportFreeSchedule = (dateStr: string) => {
+        const rowCount = exportFreeEmployeesByDate(activeEmployees, jobs, schedule, leaves, dateStr);
+        setShowExportFreeModal(false);
+        if (rowCount === 0) {
+            toast.error('Không có nhân viên nào trống lịch trong ngày đã chọn.');
+        } else {
+            toast.success(`Đã xuất danh sách ${rowCount} nhân viên trống lịch.`);
+        }
+    };
 
     // Keyboard shortcuts for copy/paste
     useEffect(() => {
@@ -168,6 +182,9 @@ const FixedSchedule: React.FC<Props> = ({
                         <button disabled={isScheduling || !isWeekEditable} onClick={() => { setSecurityCodeInput(''); setSecurityError(''); setShowSecurityModal(true); }} className="flex items-center bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700 text-sm font-medium transition-colors shadow-sm disabled:opacity-50" title={!isWeekEditable ? 'Tuần đã khóa - Nhấn Mở khóa để chỉnh sửa' : 'Tự động xếp lịch'}>
                             {isScheduling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />} Tự động xếp lịch
                         </button>
+                        <button onClick={() => setShowExportFreeModal(true)} className="flex items-center bg-green-100 text-green-700 px-3 py-1.5 rounded hover:bg-green-200 text-sm font-medium transition-colors shadow-sm border border-green-200" title="Xuất danh sách nhân viên trống lịch theo ngày">
+                            <Download className="w-4 h-4 mr-2" /> Xuất DS trống lịch
+                        </button>
                     </div>
                 ) : (
                     <div className="text-sm text-gray-500 italic bg-yellow-50 px-3 py-2 rounded border border-yellow-200 flex items-center gap-2">
@@ -217,6 +234,13 @@ const FixedSchedule: React.FC<Props> = ({
                 getJobStyle={getJobStyle}
                 isWorkShiftActive={isWorkShiftActive}
                 createRestItem={createRestItem}
+            />
+
+            {/* EXPORT FREE SCHEDULE MODAL */}
+            <ExportFreeScheduleModal
+                show={showExportFreeModal}
+                onClose={() => setShowExportFreeModal(false)}
+                onExport={handleExportFreeSchedule}
             />
 
             {/* PREVIEW MODAL */}

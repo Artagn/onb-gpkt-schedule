@@ -49,6 +49,16 @@ service cloud.firestore {
       );
     }
     
+    // Helper function: Check if user belongs to KS group (ONB_KS or KS)
+    function isKSEmployee() {
+      return getUserEmployeeId() != null && 
+             exists(/databases/$(database)/documents/employees/$(getUserEmployeeId())) &&
+             (
+               get(/databases/$(database)/documents/employees/$(getUserEmployeeId())).data.evaluationGroup == 'ONB_KS' ||
+               get(/databases/$(database)/documents/employees/$(getUserEmployeeId())).data.evaluationGroup == 'KS'
+             );
+    }
+    
     // ========== USER ROLES MAPPING ==========
     match /user_roles/{email} {
       allow read: if isAuthenticated();
@@ -239,14 +249,14 @@ service cloud.firestore {
     // ========== CARE CAMPAIGNS (Chiến dịch chăm sóc KH) ==========
     match /care_campaigns/{campaignId} {
       allow read: if isAuthenticated();
-      allow write: if isCoordinatorOrAdmin();
+      allow write: if isCoordinatorOrAdmin() || isKSEmployee();
     }
     
     // ========== CARE REPORTS (Báo cáo chăm sóc KH hàng ngày) ==========
     match /care_reports/{reportId} {
       allow read: if isAuthenticated();
-      // Admin/Coordinator have full write access
-      allow write: if isCoordinatorOrAdmin();
+      // Admin/Coordinator/KS Employees have full write access
+      allow write: if isCoordinatorOrAdmin() || isKSEmployee();
       // Staff can create their own reports
       allow create: if isAuthenticated() && 
                     (isSuperAdmin() || request.resource.data.employeeId == getUserEmployeeId());
@@ -261,7 +271,13 @@ service cloud.firestore {
     // ========== CARE METRICS (Chỉ tiêu chăm sóc KH) ==========
     match /care_metrics/{metricId} {
       allow read: if isAuthenticated();
-      allow write: if isCoordinatorOrAdmin();
+      allow write: if isCoordinatorOrAdmin() || isKSEmployee();
+    }
+    
+    // ========== SURVEY SHORT LINKS (Link khảo sát rút gọn) ==========
+    match /surveyShortLinks/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Chỉ Cloud Function (Admin SDK) được ghi
     }
   }
 }

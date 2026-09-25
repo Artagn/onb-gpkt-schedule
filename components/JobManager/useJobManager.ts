@@ -13,6 +13,7 @@ import { useAddJobMutation, useUpdateJobMutation, useDeleteJobMutation, JOB_KEYS
 import { useAddSubJobMutation, useUpdateSubJobMutation, useDeleteSubJobMutation, SUBJOB_KEYS } from '../../hooks/useSubJobsQuery';
 import { useAddJobGroupMutation, useUpdateJobGroupMutation, useDeleteJobGroupMutation } from '../../hooks/useJobGroupsQuery';
 import { useData } from '../../context/DataContext';
+import { DEFAULT_JOB_IDS } from '../../constants';
 
 export type Tab = 'jobGroups' | 'jobs' | 'subJobs';
 export type ImportMode = 'none' | 'jobs' | 'subJobs';
@@ -91,6 +92,10 @@ export const useJobManager = () => {
 
     // ========== JOB HANDLERS ==========
     const handleEditJob = (job: Job) => {
+        if (DEFAULT_JOB_IDS.includes(job.id)) {
+            toast.error(`Công việc "${job.name}" là công việc mặc định của hệ thống, không thể chỉnh sửa.`);
+            return;
+        }
         setIsEditing(job.id);
         setEditForm({ ...job });
     };
@@ -101,6 +106,10 @@ export const useJobManager = () => {
     };
 
     const handleDeleteJobClick = (job: Job) => {
+        if (DEFAULT_JOB_IDS.includes(job.id)) {
+            toast.error(`Công việc "${job.name}" là công việc mặc định của hệ thống, không thể xóa.`);
+            return;
+        }
         const isInUse = schedule.some(s => s.jobId === job.id);
         if (isInUse) {
             toast.error(

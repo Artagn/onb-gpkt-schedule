@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 4.4.17 | **Last Updated:** 2026-06-11
+> **Version:** 4.5.0 | **Last Updated:** 2026-08-31
 
 ---
 
@@ -170,6 +170,12 @@ App.tsx                    # Root + Provider + Router
 > [!IMPORTANT]
 > **jobGroups Firestore Rules (v3.19.6):** Collection `jobGroups` đã được thêm vào `firestore.rules`. `useJobGroupsQuery` có default fallback (Đào tạo, Livechat, Chia hàng ngày, Chăm sóc KH, Khác) nếu collection chưa tồn tại trong Firestore.
 
+> [!IMPORTANT]
+> **Default/Protected Jobs & Lọc theo Lịch cố định trong Phân công hàng ngày (v4.5.x):** `constants.ts` định nghĩa mảng `DEFAULT_JOB_IDS` (hiện chỉ có `job_27` — "Chuyển đổi & 1-1"). Hai hệ quả:
+> - **JobManager:** job có `id` nằm trong `DEFAULT_JOB_IDS` bị khóa Sửa/Xóa (icon 🔒 thay cho 2 nút thao tác, chặn cả ở `useJobManager.ts`).
+> - **Daily Allocation (`useDailyAllocation.ts`):** với job thuộc `DEFAULT_JOB_IDS`, danh sách nhân viên hiển thị **không** dựa vào `jobGroups` (như job "Chia hàng ngày" thường) mà dựa vào việc nhân viên đã được gán qua Lịch cố định (`schedule`) cho đúng job + ngày đó (`isScheduledForJob`). Ô nhập liệu của job này với nhân viên chưa được gán sẽ hiện "Chưa phân công" thay vì input.
+> Lưu ý quan trọng khi sửa lại logic này: **không** áp dụng chung bộ lọc "chỉ hiện người đang rảnh theo buổi" (`checkBusy`) cho job mặc định — vì bản thân việc được gán lịch cố định khiến nhân viên đó "bận" trong `busyMap` (vốn không phân biệt theo job), nên 2 điều kiện sẽ triệt tiêu lẫn nhau nếu AND chung. `isSuitableForJob` xử lý việc này bằng cách tách tiêu chí theo loại job (mặc định → chỉ xét lịch cố định; thường → chỉ xét rảnh/bận) rồi OR theo từng job đang hiển thị.
+
 ### 2.3 Performance Optimization
 - **v4.4.17 Phân công Hàng ngày & Sửa đổi Nghỉ bù:**
     - **Cumulative Allocation Editing:** Thay thế mô hình rollover hai bước (Chia mới/Reset về 0) bằng chỉnh sửa trực tiếp số lượng phân công lũy kế `assigned` trong ô nhập liệu Daily Allocation. Tiết kiệm không gian hiển thị do loại bỏ nhãn "Đã chia" phụ.
@@ -250,6 +256,7 @@ App.tsx                    # Root + Provider + Router
 ### 3.3 Smart Shift Swap (Đổi lịch thông minh)
 - **Marketplace:** Quy trình yêu cầu, phê duyệt, từ chối, và hủy ca trực khép kín.
 - **Server-Side Transaction Approval (v4.1.0):** Logic phê duyệt yêu cầu đổi ca (`approveRequest`) đã được chuyển toàn bộ lên HTTPS Callable Cloud Function `approveSwapRequest` chạy trong transaction an toàn, bảo vệ dữ liệu khỏi race condition và thực thi phân quyền an toàn qua `/user_roles`.
+- **Đồng bộ Vùng Cloud Function (v4.4.18):** Vì function `approveSwapRequest` được triển khai tại vùng `asia-southeast1` (Singapore) nhằm tối ưu độ trễ, instance `functions` ở phía client-side (trong [firebaseConfig.ts](file:///d:/ONB%20App/Calender/services/firebaseConfig.ts)) được chỉ định rõ vùng này (`getFunctions(app, 'asia-southeast1')`). Cấu hình này giải quyết triệt để lỗi CORS phát sinh khi client gọi nhầm API endpoint mặc định `us-central1`.
 - **Date Standardization:** Toàn bộ dữ liệu ngày ở frontend được ghi dưới dạng `'yyyy-MM-dd'` thuần túy (không sử dụng `.toISOString()`), giúp giải quyết triệt để lỗi so sánh ngày (Date Inconsistency) trong Smart Swap.
 - **Timezone-Safe Date Parsing (v4.4.7):** Tuyệt đối không sử dụng `new Date(dateString)` để parse chuỗi ngày chỉ có ngày `'yyyy-MM-dd'` (ví dụ: `2026-06-02`) vì trình duyệt sẽ parse thành giờ UTC midnight, gây lệch ngày khi chạy ở các múi giờ khác nhau. Bắt buộc dùng `parseISO(dateString)` từ `date-fns` để parse theo giờ địa phương.
 - **Smart Logic:** Evening shift swap auto-includes associated Nghỉ bù + next morning.
@@ -435,6 +442,33 @@ const { data: existingEval } = useEmployeeEvaluationQuery(
 - **Tương thích ngược:** Hỗ trợ fallback tự động đọc dữ liệu cũ (từ các trường fix cứng như `callCount`) sang cấu trúc map mới. Logic fallback được tập trung vào helper `getMetricValue(dailyMetrics, metricId)` trong `useCustomerCare.ts` — tất cả components PHẢI dùng helper này thay vì tự viết inline fallback.
 - **Phân quyền:** Cấp full quyền cho nhóm `ONB_KS` trong riêng module này để tự quản lý chiến dịch, chỉ tiêu và xem báo cáo toàn phòng.
 
+### 3.11 Survey Short Links — Link Khảo sát Rút gọn (v4.5.0)
+
+**Mục đích:** NV đào tạo gửi link khảo sát rút gọn cho KH qua chat sau buổi học. Link điền sẵn Tên lớp + Ngày vào Google Form, được rút gọn qua TinyURL API.
+
+**Kiến trúc:**
+
+| Layer | Component | Chi tiết |
+|-------|-----------|----------|
+| **Cloud Function** | `batchSurveyShortLinks` (Callable, v1, asia-southeast1) | Nhận `{ entries: [{ className, date }] }`, check Firestore cache → nếu miss → build Google Form URL pre-filled → gọi TinyURL API → lưu cache. Fallback link dài nếu API lỗi. Giới hạn batch 50 entries. Token TinyURL lưu qua Firebase Secret Manager (`defineSecret('TINYURL_API_TOKEN')`), đổi giá trị qua `firebase functions:secrets:set TINYURL_API_TOKEN` — không hardcode trong source. |
+| **Firestore Cache** | Collection `surveyShortLinks` | Document ID: `{date}_{normalizedClassName}`. Fields: `className`, `date`, `longUrl`, `shortUrl`, `createdAt`. Rules: read = authenticated, write = false (chỉ Admin SDK). |
+| **Frontend Hook** | `hooks/useSurveyLinks.ts` | TanStack Query `staleTime: 24h`. Lọc ScheduleItem nhóm "Đào tạo" → tìm SubJob tương ứng (jobId + thứ + buổi) → thu thập unique (className, date) → gọi Cloud Function 1 lần batch. Returns: `getSurveyLink(className, date)`. |
+| **UI** | `FixedScheduleList.tsx` | Nút amber "📋 Khảo sát" cạnh "Link họp" và "Link tài liệu" trên mỗi SubJob. Click = `navigator.clipboard.writeText(shortUrl)` + toast "Đã copy link khảo sát!". |
+
+**Google Form URL Pattern:**
+```
+https://docs.google.com/forms/d/e/1FAIpQLSdpIcZw7pdUF76LI7zkSI_Km1EzG4kfxxL2-xuHOeFtFt4xKA/viewform
+  ?entry.1277919513={Tên lớp}   ← SubJob.name
+  &entry.613051653={Ngày}        ← ScheduleItem.date (yyyy-MM-dd)
+```
+
+**Cache Strategy (3 tầng):**
+1. **TinyURL API** → gọi 1 lần/lớp/ngày (~10-15 calls lần đầu)
+2. **Firestore `surveyShortLinks`** → cache vĩnh viễn, mọi NV đọc chung
+3. **TanStack Query** → staleTime 24h, frontend không gọi lại trong cùng session
+
+**Normalize tên lớp cho Firestore doc ID:** `normalizeName()` trong `survey.ts` — lowercase → NFD → bỏ dấu → đ→d → replace non-alphanumeric → trim dashes.
+
 ---
 
 ## 4. DEPLOYMENT
@@ -459,6 +493,11 @@ npm run deploy
 3. Always run `npm run build` before deploy
 
 **Configuration:** See `CODE_EXAMPLES.md` Section 15.
+
+### 4.3 Cloud Functions Dependency Changes
+
+> [!WARNING]
+> **Node Version Mismatch Risk (2026-08-31):** `functions/package.json` khai `"engines": { "node": "22" }` khớp với Cloud Build. Nếu máy dev chạy Node khác bản 22 (vd. Node 24), chạy `npm install`/`npm uninstall` trong `functions/` có thể sinh ra `package-lock.json` mà `npm ci` pass ở local nhưng **fail trên Cloud Build khi deploy** — do npm tính toán khác nhau cho các dependency optional lồng sâu (vd. chuỗi `firebase-admin` → `@google-cloud/firestore` [optional] → `google-gax` → `protobufjs-cli` [optional] → `jsdoc` → `markdown-it`). Trước khi sửa `functions/package.json`, đảm bảo máy dev dùng đúng Node 22 (qua nvm) rồi mới chạy `npm install`/`npm ci` để kiểm tra, tránh lặp lại lỗi deploy đã gặp (xem ADR #39 trong DECISIONS.md).
 
 ---
 

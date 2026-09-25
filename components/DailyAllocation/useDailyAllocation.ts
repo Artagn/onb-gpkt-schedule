@@ -12,6 +12,7 @@ import { auth } from '../../services/firebaseConfig';
 import { useQueryClient } from '@tanstack/react-query';
 import { ALLOCATION_KEYS } from '../../hooks/useAllocationsQuery';
 import { mergeAllocationsWithLocal } from '../../utils/allocationMerge';
+import { DEFAULT_JOB_IDS } from '../../constants';
 
 export type DatePreset = 'today' | 'yesterday' | 'tomorrow' | 'thisWeek' | 'lastWeek' | 'nextWeek' | 'thisMonth' | 'lastMonth' | 'nextMonth' | 'custom';
 
@@ -167,26 +168,57 @@ export const useDailyAllocation = ({
         return busyMap.has(`${empId}_${targetShift}`);
     };
 
+    // ========== SCHEDULE-RESTRICTED JOB CHECK ==========
+    // Default jobs (vd. "Chuyển đổi") giới hạn phân công chỉ cho nhân viên đã được
+    // gán qua Lịch cố định trong ngày, thay vì toàn bộ nhân viên thuộc nhóm "Chia hàng ngày".
+    const isScheduledForJob = (empId: string, jobId: string) => {
+        return schedule.some(s =>
+            s.jobId === jobId &&
+            s.date === fromDateStr &&
+            s.status !== 'Cancelled' &&
+            s.employeeIds.includes(empId)
+        );
+    };
+
+    const isEligibleForJob = (empId: string, jobId: string) => {
+        // Chỉ áp dụng khi xem đúng 1 ngày cụ thể - ở chế độ xem tổng hợp theo khoảng
+        // thời gian, fromDateStr chỉ là ngày bắt đầu nên không đủ để xác định lịch từng ngày.
+        if (DEFAULT_JOB_IDS.includes(jobId) && isSingleDay) {
+            return isScheduledForJob(empId, jobId);
+        }
+        return true;
+    };
+
+    // Nhân viên có "phù hợp" để hiện hàng cho 1 job cụ thể hay không:
+    // - Job mặc định (vd. "Chuyển đổi & 1-1"): phải ĐÃ được gán lịch cố định cho job này
+    //   (không áp dụng bộ lọc "rảnh theo buổi" vì chính lịch đó khiến họ "bận").
+    // - Job thường: chỉ cần đang rảnh theo buổi đang chọn (như logic gốc trước đây).
+    const isSuitableForJob = (empId: string, jobId: string) => {
+        if (DEFAULT_JOB_IDS.includes(jobId)) {
+            return isScheduledForJob(empId, jobId);
+        }
+        if (isSingleDay) {
+            const busyMorning = checkBusy(empId, 'Sáng');
+            const busyAfternoon = checkBusy(empId, 'Chiều');
+            if (shift === 'All') return !(busyMorning && busyAfternoon);
+            if (shift === 'Sáng') return !busyMorning;
+            if (shift === 'Chiều') return !busyAfternoon;
+        }
+        return true;
+    };
+
     // ========== AVAILABLE EMPLOYEES ==========
     const availableEmployees = useMemo(() => {
         return activeEmployees.filter(emp => {
             if (!emp.jobGroups.includes('Chia hàng daily') && !emp.jobGroups.includes('Chia hàng ngày')) return false;
 
-            if (isSingleDay) {
-                const busyMorning = checkBusy(emp.id, 'Sáng');
-                const busyAfternoon = checkBusy(emp.id, 'Chiều');
+            // Phải phù hợp (theo lịch cố định hoặc theo rảnh/bận tùy loại job) với ít nhất
+            // 1 trong các công việc đang hiển thị.
+            if (displayedJobs.length > 0 && !displayedJobs.some(job => isSuitableForJob(emp.id, job.id))) return false;
 
-                if (shift === 'All') {
-                    if (busyMorning && busyAfternoon) return false;
-                } else if (shift === 'Sáng') {
-                    if (busyMorning) return false;
-                } else if (shift === 'Chiều') {
-                    if (busyAfternoon) return false;
-                }
-            }
             return true;
         }).sort((a, b) => (a.stt || 9999) - (b.stt || 9999));
-    }, [activeEmployees, busyMap, isSingleDay, shift]);
+    }, [activeEmployees, busyMap, isSingleDay, shift, displayedJobs, schedule, fromDateStr]);
 
     // ========== ALLOCATION HANDLERS ==========
     const handleAllocationChange = (empId: string, jobId: string, field: keyof DailyAllocation, value: number) => {
@@ -376,6 +408,7 @@ export const useDailyAllocation = ({
         allDailyJobs,
         displayedJobs,
         availableEmployees,
+        isEligibleForJob,
         canEdit,
         isDirty,
 

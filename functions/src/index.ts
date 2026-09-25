@@ -23,3 +23,6 @@ export { onEmployeeWrite, runDataMigration } from "./userRolesSync";
 // Shift Swap Marketplace trigger
 export { approveSwapRequest } from "./executeSwap";
 
+// Survey Module (Khảo sát Đào tạo)
+export { batchSurveyShortLinks } from './survey';
+

@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { Calendar, AlertCircle, ListTodo, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Calendar, AlertCircle, ListTodo, ExternalLink, CheckCircle2, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { ScheduleItem, Job, Employee, SubJob } from '../../types';
 import EmptyState from '../common/EmptyState';
 
@@ -19,12 +20,13 @@ interface Props {
     handleQuickComplete: (e: React.MouseEvent, item: ScheduleItem) => void;
     setEditingRestItem: (item: ScheduleItem) => void;
     onRequestSwap?: (item: ScheduleItem) => void;
+    getSurveyLink?: (className: string, date: string) => string | undefined;
 }
 
 const FixedScheduleList: React.FC<Props> = ({
     displayedFixedSchedule, currentEmployeeId, filterShift,
     jobs, employees, subJobs, fullWidth = false,
-    setSelectedTask, setActionNote, setTrainingMetrics, handleQuickComplete, setEditingRestItem, onRequestSwap
+    setSelectedTask, setActionNote, setTrainingMetrics, handleQuickComplete, setEditingRestItem, onRequestSwap, getSurveyLink
 }) => {
 
     const getJob = (id: string) => jobs.find(j => j.id === id);
@@ -142,7 +144,9 @@ const FixedScheduleList: React.FC<Props> = ({
                                             <ListTodo className="w-3 h-3 mr-1" /> Chi tiết hạng mục ({subs.length})
                                         </div>
                                         <div className="space-y-2">
-                                            {subs.map(sub => (
+                                            {subs.map(sub => {
+                                                const surveyUrl = getSurveyLink?.(sub.name, item.date);
+                                                return (
                                                 <div key={sub.id} className="flex flex-col gap-1 text-xs border-b border-dashed border-gray-200 last:border-0 pb-2 last:pb-0">
                                                     <div className="flex items-start justify-between">
                                                         <div className="flex items-center gap-2 font-bold text-indigo-900">
@@ -153,7 +157,7 @@ const FixedScheduleList: React.FC<Props> = ({
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2 pl-1">
+                                                    <div className="flex items-center gap-2 pl-1 flex-wrap">
                                                         {sub.product && (
                                                             <span className="text-[10px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border">
                                                                 SP: {sub.product}
@@ -183,9 +187,24 @@ const FixedScheduleList: React.FC<Props> = ({
                                                                 Link tài liệu
                                                             </a>
                                                         )}
+                                                        {surveyUrl && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigator.clipboard.writeText(surveyUrl);
+                                                                    toast.success('Đã copy link khảo sát!');
+                                                                }}
+                                                                className="flex items-center text-[10px] text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition-colors cursor-pointer"
+                                                                title={surveyUrl}
+                                                            >
+                                                                <ClipboardList className="w-3 h-3 mr-1" />
+                                                                Khảo sát
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

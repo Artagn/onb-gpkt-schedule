@@ -4,6 +4,8 @@ import { vi } from 'date-fns/locale';
 import { ExternalLink, CalendarDays } from 'lucide-react';
 import { Job, SubJob } from '../../types';
 
+import { clusterSubJobs, getClusterSummary } from '../../utils/scheduleCluster';
+
 interface ProcessedEntry {
     name: string;
     day: string;
@@ -81,32 +83,18 @@ const PublicDailySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, j
                 const [cls, prod] = key.split('|');
                 if (cls !== classification || prod !== product) return;
 
-                const hasMorning = subs.some(s => s.shift === 'Sáng');
-                const hasAfternoon = subs.some(s => s.shift === 'Chiều');
-                const hasEvening = subs.some(s => s.shift === 'Tối');
+                const clusters = clusterSubJobs(subs);
+                clusters.forEach(cluster => {
+                    const summary = getClusterSummary(cluster);
 
-                let shift: string;
-                if ((hasMorning && hasAfternoon) || (hasMorning && hasEvening) || (hasAfternoon && hasEvening)) {
-                    shift = 'Cả ngày';
-                } else if (hasMorning) {
-                    shift = 'Sáng';
-                } else if (hasAfternoon) {
-                    shift = 'Chiều';
-                } else {
-                    shift = 'Tối';
-                }
-
-                // Get earliest start and latest end
-                const startTimes = subs.map(s => s.startTime!).sort();
-                const endTimes = subs.map(s => s.endTime!).sort();
-
-                entries.push({
-                    name: subs[0].name || '',
-                    day: subs[0].day || '',
-                    link: subs[0].link || '',
-                    shift,
-                    startTime: startTimes[0],
-                    endTime: endTimes[endTimes.length - 1]
+                    entries.push({
+                        name: cluster[0].name || '',
+                        day: cluster[0].day || '',
+                        link: cluster[0].link || '',
+                        shift: summary.shift,
+                        startTime: summary.startTime,
+                        endTime: summary.endTime
+                    });
                 });
             });
 

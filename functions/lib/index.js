@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.approveSwapRequest = exports.runDataMigration = exports.onEmployeeWrite = exports.getPublicTrainingSchedule = exports.recalculateAllBalances = exports.onLeaveDelete = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
+exports.batchSurveyShortLinks = exports.approveSwapRequest = exports.runDataMigration = exports.onEmployeeWrite = exports.getPublicTrainingSchedule = exports.recalculateAllBalances = exports.onLeaveDelete = exports.onLeaveApproved = exports.onScheduleUpdate = void 0;
 const admin = __importStar(require("firebase-admin"));
 // Khởi tạo Admin SDK một lần duy nhất tại đây cho toàn bộ Functions
 if (!admin.apps.length) {
@@ -49,4 +49,7 @@ Object.defineProperty(exports, "runDataMigration", { enumerable: true, get: func
 // Shift Swap Marketplace trigger
 var executeSwap_1 = require("./executeSwap");
 Object.defineProperty(exports, "approveSwapRequest", { enumerable: true, get: function () { return executeSwap_1.approveSwapRequest; } });
+// Survey Module (Khảo sát Đào tạo)
+var survey_1 = require("./survey");
+Object.defineProperty(exports, "batchSurveyShortLinks", { enumerable: true, get: function () { return survey_1.batchSurveyShortLinks; } });
 //# sourceMappingURL=index.js.map

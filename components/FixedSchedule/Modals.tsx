@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, isSameDay, addDays, getDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertOctagon, AlertTriangle, CheckSquare, Plus, Settings, Briefcase } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, CheckSquare, Plus, Settings, Briefcase, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { scheduleService, leavesService } from '../../services/firestoreService';
 import { ScheduleItem, LeaveRequest, Job,  Employee, SchedulePattern } from '../../types';
@@ -54,6 +54,59 @@ export const SecurityModal = ({ show, onClose, onConfirm, codeInput, setCodeInpu
                         className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg shadow-indigo-200 transition-all active:scale-95"
                     >
                         Xác nhận
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ===================== EXPORT FREE SCHEDULE MODAL =====================
+
+export const ExportFreeScheduleModal = ({ show, onClose, onExport }: { show: boolean; onClose: () => void; onExport: (dateStr: string) => void }) => {
+    const [dateInput, setDateInput] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+    useEffect(() => {
+        if (show) setDateInput(format(new Date(), 'yyyy-MM-dd'));
+    }, [show]);
+
+    if (!show) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm m-4 shadow-2xl border-2 border-green-100">
+                <div className="flex flex-col items-center mb-4">
+                    <div className="bg-green-100 p-3 rounded-full mb-3">
+                        <Download className="w-6 h-6 text-green-700" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800">Xuất DS trống lịch</h3>
+                    <p className="text-sm text-gray-500 text-center mt-1">Chọn ngày cần kiểm tra. File Excel sẽ liệt kê nhân viên đang hoạt động còn ít nhất 1 buổi (Sáng/Chiều/Tối) chưa có lịch và không nghỉ phép.</p>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Ngày</label>
+                    <input
+                        type="date"
+                        autoFocus
+                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-2 text-center font-medium focus:border-green-500 focus:ring-0 outline-none"
+                        value={dateInput}
+                        onChange={e => setDateInput(e.target.value)}
+                    />
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors"
+                    >
+                        Hủy bỏ
+                    </button>
+                    <button
+                        onClick={() => onExport(dateInput)}
+                        disabled={!dateInput}
+                        className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-lg shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        <Download className="w-4 h-4" /> Xuất Excel
                     </button>
                 </div>
             </div>
@@ -353,15 +406,50 @@ export const AssignModal: React.FC<AssignModalProps> = ({
 
     const handleApproveLeave = async () => {
         if (!pendingLeave) return;
-        const nextSchedule = schedule.map(s => {
+
+        let updates: Promise<void>[] = [];
+
+        let nextSchedule = schedule.map(s => {
             if (isSameDay(new Date(s.date), day) && s.shift === shift && s.employeeIds.includes(empId)) {
                 return { ...s, employeeIds: s.employeeIds.filter(id => id !== empId) };
             }
             return s;
         });
+
+        // Check if it's a rescheduled compensatory leave
+        if (pendingLeave.reason.includes('[Đã đổi]')) {
+            let originalDate: string | null = null;
+            const dateMatch = pendingLeave.reason.match(/từ (\d{2})\/(\d{2})\/(\d{4})/);
+            if (dateMatch) {
+                originalDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+            }
+
+            if (originalDate) {
+                const restItemIndex = nextSchedule.findIndex(s =>
+                    s.jobId === 'JOB_NGHI_BU' &&
+                    s.employeeIds.includes(pendingLeave.employeeId) &&
+                    s.date === originalDate
+                );
+
+                if (restItemIndex > -1) {
+                    const restItem = nextSchedule[restItemIndex];
+                    const updatedEmployees = restItem.employeeIds.filter(id => id !== pendingLeave.employeeId);
+                    if (updatedEmployees.length === 0) {
+                        nextSchedule = nextSchedule.filter((_, idx) => idx !== restItemIndex);
+                        updates.push(scheduleService.delete(restItem.id));
+                    } else {
+                        const updatedRest = { ...restItem, employeeIds: updatedEmployees };
+                        nextSchedule[restItemIndex] = updatedRest;
+                        updates.push(scheduleService.save(updatedRest));
+                    }
+                }
+            }
+        }
+
         queryClient.setQueryData<ScheduleItem[]>(SCHEDULE_KEYS.all, nextSchedule);
         const modifiedItems = nextSchedule.filter(s => isSameDay(new Date(s.date), day) && s.shift === shift);
-        const updates = modifiedItems.map(s => scheduleService.save(s));
+        updates.push(...modifiedItems.map(s => scheduleService.save(s)));
+
         const updatedLeave = { ...pendingLeave, status: 'Approved' as const };
         queryClient.setQueryData<LeaveRequest[]>(LEAVE_KEYS.all, (old = []) => old.map(l => l.id === pendingLeave.id ? updatedLeave : l));
         updates.push(leavesService.save(updatedLeave));

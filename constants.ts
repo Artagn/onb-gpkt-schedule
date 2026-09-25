@@ -26,8 +26,15 @@ export const SHIFTS = {
 // JOB IDs (Specific hardcoded jobs)
 export const JOB_IDS = {
     COMPENSATORY_LEAVE: 'JOB_NGHI_BU',
+    CONVERSION: 'job_27', // "Chuyển đổi"
     // Add others as needed if they become hardcoded dependencies
 };
+
+// DEFAULT/PROTECTED JOBS
+// - JobManager: cannot be edited or deleted.
+// - Daily Allocation: employee list is restricted to those actually assigned
+//   via Fixed Schedule that day, instead of the whole job-group membership.
+export const DEFAULT_JOB_IDS: string[] = [JOB_IDS.CONVERSION];
 
 // DATE FORMATS
 export const DATE_FORMATS = {

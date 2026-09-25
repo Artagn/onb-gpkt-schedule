@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
-import { Employee, Job, ScheduleItem } from '../types';
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { Employee, Job, ScheduleItem, LeaveRequest, Status } from '../types';
+import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { sanitizeExcelValue } from '../utils/evaluationHelpers';
+import { JOB_IDS } from '../constants';
 
 export const exportWeeklySchedule = (
     schedule: ScheduleItem[],
@@ -135,6 +136,99 @@ export const exportScheduleData = (
     const startStr = format(new Date(startDate), 'ddMMyy');
     const endStr = format(new Date(endDate), 'ddMMyy');
     const fileName = `Lich_Dieu_Phoi_${startStr}_${endStr}.xlsx`;
-    
+
     XLSX.writeFile(wb, fileName);
+};
+
+/**
+ * Xuất danh sách nhân viên đang hoạt động có ít nhất 1 buổi trống lịch trong ngày được chọn.
+ * Buổi trống hiện "Rảnh"; buổi đã có việc/nghỉ phép hiện đúng tên công việc hoặc "Nghỉ phép"
+ * thay vì chỉ ghi chung chung "Bận".
+ */
+export const exportFreeEmployeesByDate = (
+    employees: Employee[],
+    jobs: Job[],
+    schedule: ScheduleItem[],
+    leaves: LeaveRequest[],
+    dateStr: string
+): number => {
+    const shifts: Array<'Sáng' | 'Chiều' | 'Tối'> = ['Sáng', 'Chiều', 'Tối'];
+
+    // Gom tên công việc theo "empId_shift" từ lịch cố định trong ngày được chọn
+    const jobNamesMap = new Map<string, string[]>();
+    schedule.forEach(s => {
+        if (s.status !== 'Cancelled' && s.date === dateStr) {
+            const jobName = s.jobId === JOB_IDS.COMPENSATORY_LEAVE
+                ? 'Nghỉ bù'
+                : (jobs.find(j => j.id === s.jobId)?.name || 'Không xác định');
+            s.employeeIds.forEach(empId => {
+                const key = `${empId}_${s.shift}`;
+                const list = jobNamesMap.get(key) || [];
+                list.push(jobName);
+                jobNamesMap.set(key, list);
+            });
+        }
+    });
+
+    // Set các cặp "empId_shift" đang nghỉ phép trong ngày được chọn
+    const leaveSet = new Set<string>();
+    leaves.forEach(l => {
+        if ((l.status === 'Approved' || l.status === 'Pending') && l.date === dateStr) {
+            leaveSet.add(`${l.employeeId}_${l.shift}`);
+        }
+    });
+
+    const getShiftLabel = (empId: string, shift: string): string => {
+        const key = `${empId}_${shift}`;
+        const jobNames = jobNamesMap.get(key);
+        if (jobNames && jobNames.length > 0) return jobNames.join(', ');
+        if (leaveSet.has(key)) return 'Nghỉ phép';
+        return 'Rảnh';
+    };
+
+    const activeEmployees = employees
+        .filter(e => e.status === Status.Active)
+        .sort((a, b) => (a.stt || 9999) - (b.stt || 9999));
+
+    const dataRows = activeEmployees
+        .map(emp => {
+            const shiftStatus = shifts.map(shift => getShiftLabel(emp.id, shift));
+            const freeCount = shiftStatus.filter(s => s === 'Rảnh').length;
+            return { emp, shiftStatus, freeCount };
+        })
+        // Chỉ giữ nhân viên có ít nhất 1 buổi trống - "trống lịch" nghĩa là còn buổi để nhận việc
+        .filter(({ freeCount }) => freeCount > 0)
+        .map(({ emp, shiftStatus }) => ({
+            'STT': emp.stt,
+            'Họ và tên': sanitizeExcelValue(emp.fullName),
+            'Email': sanitizeExcelValue(emp.email),
+            'Hạng': sanitizeExcelValue(emp.rank),
+            'Nhóm công việc': sanitizeExcelValue(emp.jobGroups.join(', ')),
+            'Sáng': shiftStatus[0],
+            'Chiều': shiftStatus[1],
+            'Tối': shiftStatus[2],
+        }));
+
+    if (dataRows.length === 0) return 0;
+
+    const ws = XLSX.utils.json_to_sheet(dataRows);
+    ws['!cols'] = [
+        { wch: 6 },  // STT
+        { wch: 25 }, // Họ và tên
+        { wch: 28 }, // Email
+        { wch: 12 }, // Hạng
+        { wch: 30 }, // Nhóm công việc
+        { wch: 22 }, // Sáng
+        { wch: 22 }, // Chiều
+        { wch: 22 }, // Tối
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Trống lịch');
+
+    const dateFileStr = format(parseISO(dateStr), 'ddMMyyyy');
+    const fileName = `Trong_Lich_${dateFileStr}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    return dataRows.length;
 };

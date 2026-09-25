@@ -13,11 +13,18 @@ interface Props {
     // No props
 }
 
+import { clusterSubJobs, getClusterSummary } from '../utils/scheduleCluster';
+
+interface ScheduleSlot {
+    time: string;
+    type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày';
+}
+
 interface WeeklyEntry {
     name: string;
     link: string;
-    // Map of dayIndex (0=Mon, 6=Sun) to { time: string, type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày' }
-    schedule: Record<number, { time: string; type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày' }>;
+    // Map of dayIndex (0=Mon, 6=Sun) to array of ScheduleSlot
+    schedule: Record<number, ScheduleSlot[]>;
 }
 
 const WeeklyScheduleView: React.FC<Props> = () => {
@@ -128,33 +135,16 @@ const WeeklyScheduleView: React.FC<Props> = () => {
                     const daySubs = subs.filter(s => s.day === dayName);
 
                     if (daySubs.length > 0) {
-                        // Calculate earliest start and latest end
-                        const startTimes = daySubs.map(s => s.startTime).sort();
-                        const endTimes = daySubs.map(s => s.endTime).sort();
+                        const clusters = clusterSubJobs(daySubs);
+                        const slots: ScheduleSlot[] = clusters.map(cluster => {
+                            const summary = getClusterSummary(cluster);
+                            return {
+                                time: summary.timeRange,
+                                type: summary.shift
+                            };
+                        });
 
-                        const minStart = startTimes[0];
-                        const maxEnd = endTimes[endTimes.length - 1];
-
-                        // Determine Shift Type
-                        const hasMorning = daySubs.some(s => s.shift === 'Sáng');
-                        const hasAfternoon = daySubs.some(s => s.shift === 'Chiều');
-                        const hasEvening = daySubs.some(s => s.shift === 'Tối');
-
-                        let type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày';
-                        if ((hasMorning && hasAfternoon) || (hasMorning && hasEvening) || (hasAfternoon && hasEvening)) {
-                            type = 'Cả ngày';
-                        } else if (hasMorning) {
-                            type = 'Sáng';
-                        } else if (hasAfternoon) {
-                            type = 'Chiều';
-                        } else {
-                            type = 'Tối';
-                        }
-
-                        entry.schedule[i] = {
-                            time: `${minStart} - ${maxEnd}`,
-                            type
-                        };
+                        entry.schedule[i] = slots;
                     }
                 }
 
@@ -166,7 +156,7 @@ const WeeklyScheduleView: React.FC<Props> = () => {
 
             // Sort by Name for consistency
             return entries.sort((a, b) => a.name.localeCompare(b.name));
-        }
+        };
 
         return {
             linhVucAmis: processSection('Lĩnh vực', 'AMIS Kế toán'),
@@ -180,7 +170,6 @@ const WeeklyScheduleView: React.FC<Props> = () => {
 
     // Handle Copy
     const handleCopy = (sectionKey: string, entries: WeeklyEntry[]) => {
-        // ... existing logic ...
         if (entries.length === 0) {
             toast.error('Không có dữ liệu để copy');
             return;
@@ -190,7 +179,11 @@ const WeeklyScheduleView: React.FC<Props> = () => {
         const header = ['NỘI DUNG', 'THỨ 2', 'THỨ 3', 'THỨ 4', 'THỨ 5', 'THỨ 6', 'THỨ 7', 'CHỦ NHẬT', 'LINK MEET'].join('\t');
 
         const rows = entries.map(e => {
-            const days = Array.from({ length: 7 }).map((_, i) => e.schedule[i]?.time || ''); // Empty string if no schedule
+            const days = Array.from({ length: 7 }).map((_, i) => {
+                const slots = e.schedule[i];
+                if (!slots || slots.length === 0) return '';
+                return slots.map(s => s.time).join(', ');
+            });
             return [e.name, ...days, e.link].join('\t');
         });
 
@@ -278,21 +271,32 @@ const WeeklyScheduleView: React.FC<Props> = () => {
                                         <td className="px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white shadow-[1px_0_3px_-1px_rgba(0,0,0,0.1)] whitespace-normal break-words max-w-[200px]" title={entry.name}>
                                             {entry.name}
                                         </td>
-                                        {Array.from({ length: 7 }).map((_, i) => (
-                                            <td key={i} className="px-1 py-2 text-center border-l border-gray-100 align-top">
-                                                {entry.schedule[i] ? (
-                                                    <div className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${entry.schedule[i].type === 'Cả ngày' ? 'bg-purple-100 text-purple-700' :
-                                                        entry.schedule[i].type === 'Sáng' ? 'bg-amber-100 text-amber-700' :
-                                                            entry.schedule[i].type === 'Chiều' ? 'bg-blue-100 text-blue-700' :
-                                                                'bg-indigo-100 text-indigo-700'
-                                                        }`}>
-                                                        {entry.schedule[i].time}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-200 text-[10px]">-</span>
-                                                )}
-                                            </td>
-                                        ))}
+                                        {Array.from({ length: 7 }).map((_, i) => {
+                                            const slots = entry.schedule[i];
+                                            return (
+                                                <td key={i} className="px-1 py-2 text-center border-l border-gray-100 align-top">
+                                                    {slots && slots.length > 0 ? (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            {slots.map((slot, sIdx) => (
+                                                                <div
+                                                                    key={sIdx}
+                                                                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${
+                                                                        slot.type === 'Cả ngày' ? 'bg-purple-100 text-purple-700' :
+                                                                        slot.type === 'Sáng' ? 'bg-amber-100 text-amber-700' :
+                                                                        slot.type === 'Chiều' ? 'bg-blue-100 text-blue-700' :
+                                                                        'bg-indigo-100 text-indigo-700'
+                                                                    }`}
+                                                                >
+                                                                    {slot.time}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-200 text-[10px]">-</span>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
                                         <td className="px-3 py-2 text-center border-l border-gray-100">
                                             {entry.link ? (
                                                 <a href={entry.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 flex justify-center">

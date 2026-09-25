@@ -7,6 +7,7 @@ import { Role, Status } from '../../types';
 import Reports from '../Reports/index';
 
 import { useMyTasks, TabType, DatePreset } from './useMyTasks';
+import { useSurveyLinks } from '../../hooks/useSurveyLinks';
 import FixedScheduleList from './FixedScheduleList';
 import DailyTasksList from './DailyTasksList';
 import WeeklyTrainingTable from './WeeklyTrainingTable';
@@ -41,6 +42,9 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
         weeklyViewDate, setWeeklyViewDate, showWeeklyTable, setShowWeeklyTable, viewingDetailItem, setViewingDetailItem,
         getSubJobs
     } = useMyTasks(user, initialTab);
+
+    // --- SURVEY LINKS ---
+    const { getSurveyLink } = useSurveyLinks(myFixedSchedule, jobs, subJobs);
 
     // --- SWAP MODAL STATE ---
     const [showSwapModal, setShowSwapModal] = React.useState(false);
@@ -290,6 +294,7 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                             handleQuickComplete={handleQuickComplete}
                             setEditingRestItem={setEditingRestItem}
                             onRequestSwap={handleRequestSwap}
+                            getSurveyLink={getSurveyLink}
                         />
                         <DailyTasksList
                             myDailyAllocations={myDailyAllocations}
@@ -338,6 +343,7 @@ const MyTasks: React.FC<Props> = ({ user, initialTab }) => {
                                 handleQuickComplete={handleQuickComplete}
                                 setEditingRestItem={setEditingRestItem}
                                 onRequestSwap={handleRequestSwap}
+                                getSurveyLink={getSurveyLink}
                             />
                         </div>
                     </div>

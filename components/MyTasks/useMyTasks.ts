@@ -377,12 +377,6 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
                 status: 'Pending'
             };
 
-            // 1.4 Commit Changes (Delete Old Item + Add New Leave)
-            if (itemToDelete) {
-                scheduleMutations.remove.mutate(scheduleId);
-                console.log(`Deleted original schedule item ${scheduleId}`);
-            }
-
             leaveMutations.add.mutate(newLeaveRequest);
 
         } else if (existingLeave) {
@@ -408,28 +402,6 @@ export const useMyTasks = (user: any, initialTab?: TabType) => {
             };
 
             if (updatedLeave) leaveMutations.update.mutate(updatedLeave);
-
-            // 2.2 Delete linked Schedule Item if it exists (for the OLD date)
-            // Parse original date from reason "[Đã đổi] Nghỉ bù từ DD/MM/YYYY"
-            let originalDate: string | null = null;
-            const dateMatch = existingLeave.reason.match(/từ (\d{2})\/(\d{2})\/(\d{4})/);
-            if (dateMatch) {
-                originalDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-            }
-
-            const restItem = schedule.find(s =>
-                s.jobId === 'JOB_NGHI_BU' &&
-                s.employeeIds.includes(existingLeave.employeeId) &&
-                (
-                    (originalDate && s.date === originalDate) ||
-                    (isSameDay(parseISO(s.date), parseISO(existingLeave.date)) && s.shift === existingLeave.shift)
-                )
-            );
-
-            if (restItem) {
-                // Delete old rest item instead of updating — leave request already handles the new date
-                scheduleMutations.remove.mutate(restItem.id);
-            }
         }
         setEditingAutoLeave(null);
         toast.success("Đã cập nhật ngày/buổi nghỉ bù.");

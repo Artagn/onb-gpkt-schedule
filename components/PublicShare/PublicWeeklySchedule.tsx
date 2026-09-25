@@ -4,11 +4,18 @@ import { vi } from 'date-fns/locale';
 import { Calendar, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Job, SubJob } from '../../types';
 
+import { clusterSubJobs, getClusterSummary } from '../../utils/scheduleCluster';
+
+interface ScheduleSlot {
+    time: string;
+    type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày';
+}
+
 interface WeeklyEntry {
     name: string;
     link: string;
-    // Map of dayIndex (0=Mon, 6=Sun) to { time: string, type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày' }
-    schedule: Record<number, { time: string; type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày' }>;
+    // Map of dayIndex (0=Mon, 6=Sun) to array of ScheduleSlot
+    schedule: Record<number, ScheduleSlot[]>;
 }
 
 interface Props {
@@ -89,31 +96,16 @@ const PublicWeeklySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, 
                     const daySubs = subs.filter(s => s.day === dayName);
 
                     if (daySubs.length > 0) {
-                        const startTimes = daySubs.map(s => s.startTime!).sort();
-                        const endTimes = daySubs.map(s => s.endTime!).sort();
+                        const clusters = clusterSubJobs(daySubs);
+                        const slots: ScheduleSlot[] = clusters.map(cluster => {
+                            const summary = getClusterSummary(cluster);
+                            return {
+                                time: summary.timeRange,
+                                type: summary.shift
+                            };
+                        });
 
-                        const minStart = startTimes[0];
-                        const maxEnd = endTimes[endTimes.length - 1];
-
-                        const hasMorning = daySubs.some(s => s.shift === 'Sáng');
-                        const hasAfternoon = daySubs.some(s => s.shift === 'Chiều');
-                        const hasEvening = daySubs.some(s => s.shift === 'Tối');
-
-                        let type: 'Sáng' | 'Chiều' | 'Tối' | 'Cả ngày';
-                        if ((hasMorning && hasAfternoon) || (hasMorning && hasEvening) || (hasAfternoon && hasEvening)) {
-                            type = 'Cả ngày';
-                        } else if (hasMorning) {
-                            type = 'Sáng';
-                        } else if (hasAfternoon) {
-                            type = 'Chiều';
-                        } else {
-                            type = 'Tối';
-                        }
-
-                        entry.schedule[i] = {
-                            time: `${minStart} - ${maxEnd}`,
-                            type
-                        };
+                        entry.schedule[i] = slots;
                     }
                 }
 
@@ -171,18 +163,26 @@ const PublicWeeklySchedule: React.FC<Props> = ({ selectedDate, setSelectedDate, 
                                         </td>
                                         {Array.from({ length: 7 }).map((_, i) => {
                                             const isHoliday = getHolidayName(weekDates[i]);
+                                            const slots = entry.schedule[i];
                                             return (
                                                 <td key={i} className={`px-1 py-2 text-center border-l border-gray-100 align-top ${isHoliday ? 'bg-amber-50/30' : ''}`}>
                                                     {isHoliday ? (
                                                         <span className="text-amber-500/50 text-[10px] italic">Nghỉ lễ</span>
-                                                    ) : entry.schedule[i] ? (
-                                                        <div className={`inline-block px-1.5 py-0.5 rounded font-semibold whitespace-nowrap text-[10px] md:text-xs ${
-                                                            entry.schedule[i].type === 'Cả ngày' ? 'bg-purple-100 text-purple-700' :
-                                                            entry.schedule[i].type === 'Sáng' ? 'bg-amber-100 text-amber-700' :
-                                                            entry.schedule[i].type === 'Chiều' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-indigo-100 text-indigo-700'
-                                                        }`}>
-                                                            {entry.schedule[i].time}
+                                                    ) : slots && slots.length > 0 ? (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            {slots.map((slot, sIdx) => (
+                                                                <div
+                                                                    key={sIdx}
+                                                                    className={`inline-block px-1.5 py-0.5 rounded font-semibold whitespace-nowrap text-[10px] md:text-xs ${
+                                                                        slot.type === 'Cả ngày' ? 'bg-purple-100 text-purple-700' :
+                                                                        slot.type === 'Sáng' ? 'bg-amber-100 text-amber-700' :
+                                                                        slot.type === 'Chiều' ? 'bg-blue-100 text-blue-700' :
+                                                                        'bg-indigo-100 text-indigo-700'
+                                                                    }`}
+                                                                >
+                                                                    {slot.time}
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     ) : (
                                                         <span className="text-gray-200 text-[10px]">-</span>
