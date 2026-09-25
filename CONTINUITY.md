@@ -2,7 +2,7 @@
 
 > **Mục đích:** Tài liệu kỹ thuật chi tiết về cấu hình và triển khai.  
 > **Cấu trúc:** Sắp xếp theo chức năng (không theo thời gian) để dễ tra cứu.  
-> **Version:** 4.5.0 | **Last Updated:** 2026-08-31
+> **Version:** 4.5.2 | **Last Updated:** 2026-09-25
 
 ---
 
@@ -174,9 +174,18 @@ App.tsx                    # Root + Provider + Router
 > **Default/Protected Jobs & Lọc theo Lịch cố định trong Phân công hàng ngày (v4.5.x):** `constants.ts` định nghĩa mảng `DEFAULT_JOB_IDS` (hiện chỉ có `job_27` — "Chuyển đổi & 1-1"). Hai hệ quả:
 > - **JobManager:** job có `id` nằm trong `DEFAULT_JOB_IDS` bị khóa Sửa/Xóa (icon 🔒 thay cho 2 nút thao tác, chặn cả ở `useJobManager.ts`).
 > - **Daily Allocation (`useDailyAllocation.ts`):** với job thuộc `DEFAULT_JOB_IDS`, danh sách nhân viên hiển thị **không** dựa vào `jobGroups` (như job "Chia hàng ngày" thường) mà dựa vào việc nhân viên đã được gán qua Lịch cố định (`schedule`) cho đúng job + ngày đó (`isScheduledForJob`). Ô nhập liệu của job này với nhân viên chưa được gán sẽ hiện "Chưa phân công" thay vì input.
-> Lưu ý quan trọng khi sửa lại logic này: **không** áp dụng chung bộ lọc "chỉ hiện người đang rảnh theo buổi" (`checkBusy`) cho job mặc định — vì bản thân việc được gán lịch cố định khiến nhân viên đó "bận" trong `busyMap` (vốn không phân biệt theo job), nên 2 điều kiện sẽ triệt tiêu lẫn nhau nếu AND chung. `isSuitableForJob` xử lý việc này bằng cách tách tiêu chí theo loại job (mặc định → chỉ xét lịch cố định; thường → chỉ xét rảnh/bận) rồi OR theo từng job đang hiển thị.
+> - **Lọc theo buổi (v4.5.2):** khi bộ lọc buổi là `Sáng`/`Chiều`, `isScheduledForJob` chỉ tính lịch cố định của **đúng buổi đó** (chế độ "Cả ngày" tính cả 2 buổi).
+>
+> **`busyMap` bỏ qua job nhóm "Chia hàng ngày" (v4.5.2):** lịch cố định của các job có `group === 'Chia hàng ngày'` (tập `dailyJobIdSet`, vd. job_27) **không** được tính là "bận" — đó chính là công việc được chia tại màn hình này. Trước v4.5.2, nhân viên như Trần Tường Duy (25/09: Sáng "Chuyển đổi & 1-1", Chiều "TƯ VẤN LITE") bị tô trắng như bận cả ngày, trong khi đúng ra phải màu xanh dương (nhận việc buổi Sáng). Màu hàng (`getEmployeeRowClass`): teal = rảnh cả ngày, blue = rảnh Sáng, orange = rảnh Chiều, trắng = bận cả 2 buổi.
+> `isSuitableForJob` vẫn tách tiêu chí theo loại job (mặc định → chỉ xét lịch cố định; thường → chỉ xét rảnh/bận theo `busyMap`) rồi OR theo từng job đang hiển thị.
+>
+> **Thông tin lịch theo buổi (v4.5.2):** `shiftInfoMap` + `getEmployeeShiftInfo(empId)` trả về công việc Sáng/Chiều của từng nhân viên (tên job từ `schedule`, "Nghỉ"/"Nghỉ (chờ duyệt)" từ `leaves`, trống = "Rảnh"); hiển thị dưới tên nhân viên trong `DailyAllocation/index.tsx` (chỉ ở chế độ xem 1 ngày).
 
 ### 2.3 Performance Optimization
+- **v4.5.2 Sửa màu & thông tin Phân công hàng ngày:**
+    - **busyMap loại trừ job "Chia hàng ngày":** Lịch cố định của job nhóm "Chia hàng ngày" không còn bị tính là bận, sửa lỗi màu hàng (vd. Trần Tường Duy 25/09 từ trắng → xanh dương).
+    - **Shift-aware eligibility:** Job mặc định chỉ mở ô nhập khi nhân viên có lịch cố định đúng buổi đang lọc.
+    - **Per-shift info:** Cột nhân viên hiển thị công việc Sáng/Chiều hoặc "Rảnh"/"Nghỉ".
 - **v4.4.17 Phân công Hàng ngày & Sửa đổi Nghỉ bù:**
     - **Cumulative Allocation Editing:** Thay thế mô hình rollover hai bước (Chia mới/Reset về 0) bằng chỉnh sửa trực tiếp số lượng phân công lũy kế `assigned` trong ô nhập liệu Daily Allocation. Tiết kiệm không gian hiển thị do loại bỏ nhãn "Đã chia" phụ.
     - **Report Backward Compatibility:** Tổng hợp `assigned` và `newAssigned` ở phía client báo cáo giúp hiển thị thống nhất dữ liệu lịch sử và dữ liệu mới mà không cần migration dữ liệu.

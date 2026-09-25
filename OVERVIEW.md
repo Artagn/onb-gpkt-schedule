@@ -1,8 +1,8 @@
 # ONB GPKT Schedule - System Overview
 
 > **📚 START HERE** - Quick reference for new AI agents and developers  
-> **Last Updated:** 2026-09-21  
-> **Version:** v4.5.0  
+> **Last Updated:** 2026-09-25  
+> **Version:** v4.5.2  
 > **Status:** ✅ Production
 
 ---
@@ -86,6 +86,7 @@ ONB GPKT Schedule là hệ thống quản lý lịch làm việc, phân công nh
 
 | Date | Version | Change | Impact |
 |------|---------|--------|--------|
+| 2026-09-25 | v4.5.2 | Sửa màu & thông tin Phân công hàng ngày | Lịch cố định của job nhóm "Chia hàng ngày" (vd. "Chuyển đổi & 1-1") không còn tính là "bận" trong `busyMap` → sửa màu hàng sai (vd. Trần Tường Duy 25/09 bị tô trắng như bận cả ngày). Job mặc định lọc theo đúng buổi Sáng/Chiều đang chọn. Cột nhân viên hiển thị công việc từng buổi hoặc "Rảnh"/"Nghỉ". |
 | 2026-09-21 | v4.5.1 | Job Mặc định & Lọc Phân công theo Lịch cố định | Gộp job "1-1" + "Chuyển đổi" thành "Chuyển đổi & 1-1" (job_27), khóa Sửa/Xóa job này trong JobManager (`DEFAULT_JOB_IDS`). Daily Allocation lọc nhân viên cho job này theo Lịch cố định (`schedule`) thay vì cả nhóm "Chia hàng ngày". Sửa lỗi xung đột với bộ lọc "đang rảnh theo buổi" khiến danh sách rỗng. |
 | 2026-08-31 | v4.5.0 hotfix | Bảo mật hoá Token TinyURL & Deploy chính thức | Chuyển token TinyURL từ hardcode sang Firebase Secret Manager (`defineSecret`), gỡ bỏ `getSurveyForm`/`submitSurveyResponse`/`sheetsService.ts`/`googleapis` (tính năng khảo sát tự viết chưa dùng tới, ngoài phạm vi Survey Short Links). Deploy chính thức `batchSurveyShortLinks` + Firestore rules lên production. |
 | 2026-07-15 | v4.5.0 | Survey Short Links | Tích hợp link khảo sát rút gọn (TinyURL API) vào lịch đào tạo. Cloud Function `batchSurveyShortLinks` tạo/cache link trong Firestore collection `surveyShortLinks`. Frontend hook `useSurveyLinks` batch-fetch với TanStack Query cache 24h. Nút "📋 Khảo sát" trên mỗi SubJob, click = copy link rút gọn. |
