@@ -143,11 +143,18 @@ export const useDailyAllocation = ({
     };
 
     // ========== BUSY MAP OPTIMIZED LOOKUP (O(1)) ==========
+    // Job thuộc nhóm "Chia hàng ngày" (vd. "Chuyển đổi & 1-1") chính là công việc được
+    // chia tại màn hình này => lịch cố định của các job đó KHÔNG tính là "bận".
+    const dailyJobIdSet = useMemo(() =>
+        new Set(jobs.filter(j => j.group === 'Chia hàng ngày').map(j => j.id)),
+        [jobs]
+    );
+
     const busyMap = useMemo(() => {
         const map = new Set<string>();
 
         schedule.forEach(s => {
-            if (s.status !== 'Cancelled' && s.date === fromDateStr) {
+            if (s.status !== 'Cancelled' && s.date === fromDateStr && !dailyJobIdSet.has(s.jobId)) {
                 s.employeeIds.forEach(empId => {
                     map.add(`${empId}_${s.shift}`);
                 });
@@ -161,7 +168,37 @@ export const useDailyAllocation = ({
         });
 
         return map;
-    }, [schedule, leaves, fromDateStr]);
+    }, [schedule, leaves, fromDateStr, dailyJobIdSet]);
+
+    // ========== SHIFT INFO (hiển thị lịch Sáng/Chiều của từng NV) ==========
+    const shiftInfoMap = useMemo(() => {
+        const map = new Map<string, string[]>();
+        const push = (key: string, label: string) => {
+            const arr = map.get(key) || [];
+            if (!arr.includes(label)) arr.push(label);
+            map.set(key, arr);
+        };
+        schedule.forEach(s => {
+            if (s.status === 'Cancelled' || s.date !== fromDateStr) return;
+            const label = jobs.find(j => j.id === s.jobId)?.name || s.jobId;
+            s.employeeIds.forEach(empId => push(`${empId}_${s.shift}`, label));
+        });
+        leaves.forEach(l => {
+            if ((l.status === 'Approved' || l.status === 'Pending') && l.date === fromDateStr) {
+                push(`${l.employeeId}_${l.shift}`, l.status === 'Pending' ? 'Nghỉ (chờ duyệt)' : 'Nghỉ');
+            }
+        });
+        return map;
+    }, [schedule, leaves, jobs, fromDateStr]);
+
+    const getEmployeeShiftInfo = (empId: string) => {
+        if (!isSingleDay) return [];
+        return (['Sáng', 'Chiều'] as const).map(sh => ({
+            shift: sh,
+            labels: shiftInfoMap.get(`${empId}_${sh}`) || [],
+            busy: checkBusy(empId, sh),
+        }));
+    };
 
     // ========== BUSY CHECK HELPER ==========
     const checkBusy = (empId: string, targetShift: string) => {
@@ -171,11 +208,14 @@ export const useDailyAllocation = ({
     // ========== SCHEDULE-RESTRICTED JOB CHECK ==========
     // Default jobs (vd. "Chuyển đổi") giới hạn phân công chỉ cho nhân viên đã được
     // gán qua Lịch cố định trong ngày, thay vì toàn bộ nhân viên thuộc nhóm "Chia hàng ngày".
+    // Khi lọc theo buổi cụ thể (Sáng/Chiều) chỉ tính lịch của đúng buổi đó.
     const isScheduledForJob = (empId: string, jobId: string) => {
+        const shiftFilter = shift === 'Sáng' || shift === 'Chiều' ? shift : null;
         return schedule.some(s =>
             s.jobId === jobId &&
             s.date === fromDateStr &&
             s.status !== 'Cancelled' &&
+            (!shiftFilter || s.shift === shiftFilter) &&
             s.employeeIds.includes(empId)
         );
     };
@@ -420,5 +460,6 @@ export const useDailyAllocation = ({
         getAllocationData,
         calculatePending,
         getEmployeeRowClass,
+        getEmployeeShiftInfo,
     };
 };

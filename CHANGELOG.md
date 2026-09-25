@@ -3,6 +3,16 @@
 > All notable changes to this project are documented in this file.  
 > Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.5.2] - 2026-09-25 🎨 Sửa màu & thông tin Phân công hàng ngày
+**Summary:** Sửa lỗi hiển thị màu hàng và thông tin nhân viên trong Daily Allocation (vd. Trần Tường Duy ngày 25/09: Sáng "Chuyển đổi & 1-1", Chiều "TƯ VẤN LITE" bị tô trắng như bận cả ngày).
+
+### Fixed
+- **Màu hàng sai:** Lịch cố định của job nhóm "Chia hàng ngày" (vd. job_27) không còn bị tính là "bận" trong `busyMap` — đó chính là công việc được chia tại màn hình này.
+- **Lọc theo buổi:** Khi chọn Sáng/Chiều, job mặc định chỉ mở ô nhập cho nhân viên có lịch cố định đúng buổi đó.
+
+### Added
+- **Thông tin lịch theo buổi:** Cột nhân viên hiển thị công việc Sáng/Chiều (hoặc "Rảnh"/"Nghỉ") qua `getEmployeeShiftInfo`.
+
 ## [4.4.18] - 2026-06-17 🛡️ Sửa lỗi CORS Đổi lịch (Region Mismatch)
 **Summary:** Sửa lỗi CORS (ERR_FAILED / preflight check block) khi nhân viên phê duyệt yêu cầu đổi ca trực do lệch vùng gọi Firebase Functions (us-central1 vs asia-southeast1).
 

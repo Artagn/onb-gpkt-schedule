@@ -44,6 +44,7 @@ const DailyAllocationView: React.FC<Props> = ({
         getAllocationData,
         calculatePending,
         getEmployeeRowClass,
+        getEmployeeShiftInfo,
     } = useDailyAllocation({ employees, jobs, schedule, allocations, leaves, currentUserRole });
 
     return (
@@ -269,6 +270,14 @@ const DailyAllocationView: React.FC<Props> = ({
                                             <div className="text-[10px] text-gray-400 flex items-center gap-1">
                                                 {emp.email.split('@')[0]}
                                             </div>
+                                            {getEmployeeShiftInfo(emp.id).map(info => (
+                                                <div key={info.shift} className="text-[10px] leading-tight flex gap-1">
+                                                    <span className="font-semibold text-slate-600 shrink-0">{info.shift}:</span>
+                                                    <span className={info.busy ? 'text-gray-500' : 'text-teal-700 font-medium'}>
+                                                        {info.labels.length > 0 ? info.labels.join(', ') : 'Rảnh'}
+                                                    </span>
+                                                </div>
+                                            ))}
                                         </td>
                                         {displayedJobs.map(job => {
                                             const eligible = isEligibleForJob(emp.id, job.id);
